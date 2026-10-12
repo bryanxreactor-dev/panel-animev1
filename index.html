@@ -14,11 +14,11 @@
         input, select { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #374151; background: #030712; color: #fff; box-sizing: border-box; font-size: 14px; }
         input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 8px rgba(255,0,85,0.3); }
         
-        button { background: var(--accent); color: white; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; text-transform: uppercase; width: 100%; transition: 0.3s; font-size: 13px; }
+        button { background: var(--accent); color: white; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; text-transform: uppercase; width: 100%; transition: 0.3s; font-size: 13px; margin-top: 10px; }
         button:hover { opacity: 0.9; transform: translateY(-1px); }
         
         .nav-tabs { display: flex; gap: 10px; margin-bottom: 25px; border-bottom: 1px solid #1f2937; padding-bottom: 12px; }
-        .nav-tabs button { flex: 1; background: #1f2937; color: #9ca3af; }
+        .nav-tabs button { flex: 1; background: #1f2937; color: #9ca3af; margin-top: 0; }
         .nav-tabs button.active { background: var(--accent); color: #fff; }
         
         .tab-pane { display: none; }
@@ -26,14 +26,18 @@
         
         .row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px; }
         .logout-bar { display: flex; justify-content: space-between; align-items: center; background: #030712; padding: 10px 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #1f2937; }
-        .logout-btn { background: #374151; color: #f87171; width: auto; padding: 6px 15px; font-size: 11px; }
+        .logout-btn { background: #374151; color: #f87171; width: auto; padding: 6px 15px; font-size: 11px; margin-top: 0; }
         
         textarea { width: 100%; height: 180px; background: #030712; color: var(--cyan); border: 1px solid #374151; padding: 15px; font-family: monospace; border-radius: 8px; box-sizing: border-box; margin-top: 15px; font-size: 12px; resize: none; }
         .status-msg { text-align: center; font-size: 13px; font-weight: bold; margin-top: 10px; min-height: 20px; color: #fbbf24; }
         .server-section { background: #030712; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #1f2937; }
+        .google-auth-box { background: #030712; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #1f2937; display: flex; justify-content: space-between; align-items: center; }
     </style>
 
-    <!-- Firebase SDK Modular y Auth/Firestore -->
+    <!-- Google Identity Services para OAuth -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <!-- Firebase SDK Modular -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
@@ -53,13 +57,38 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Control de sesión activa
+        let googleAccessToken = null;
+        const CLIENT_ID = "77184385205-rlatusv7sersid56ju1vr32dd4b53q1v.apps.googleusercontent.com";
+
+        // Configurar Google Token Client
+        let tokenClient;
+        window.onload = function () {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: 'https://www.googleapis.com/auth/blogger',
+                callback: (tokenResponse) => {
+                    if (tokenResponse && tokenResponse.access_token) {
+                        googleAccessToken = tokenResponse.access_token;
+                        document.getElementById('googleAuthStatus').innerText = "🟢 Conectado a Blogger API";
+                        document.getElementById('googleAuthStatus').style.color = "#00ffcc";
+                    }
+                },
+            });
+        };
+
+        window.connectBlogger = function() {
+            if(tokenClient) {
+                tokenClient.requestAccessToken();
+            }
+        };
+
+        // Control de sesión Firebase
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 document.getElementById('authView').style.display = 'none';
                 document.getElementById('dashboardView').style.display = 'block';
                 document.getElementById('userEmailDisplay').innerText = user.email;
-                loadDatabaseSeries(); // Cargar base de datos al entrar
+                loadDatabaseSeries();
             } else {
                 document.getElementById('authView').style.display = 'block';
                 document.getElementById('dashboardView').style.display = 'none';
@@ -77,7 +106,6 @@
             signOut(auth);
         };
 
-        // Función para cargar series guardadas en Firestore
         async function loadDatabaseSeries() {
             const container = document.getElementById('dbListContainer');
             container.innerHTML = "Cargando series desde Firestore...";
@@ -101,8 +129,74 @@
             }
         }
 
-        // Exportar db y collection para uso en funciones globales si es necesario
-        window.dbRef = { db, collection, addDoc };
+        // Publicar Serie consultando AniList y enviando a Blogger + Firestore
+        window.generateAndSaveSeries = async function() {
+            const aniId = document.getElementById('seriesAniId').value.trim();
+            const blogId = document.getElementById('blogId').value.trim();
+            const statusEl = document.getElementById('seriesStatus');
+            
+            if(!aniId) { alert("Ingresa un ID de AniList."); return; }
+            if(!blogId) { alert("Ingresa tu Blog ID de Blogger."); return; }
+            if(!googleAccessToken) { alert("Primero conéctate a la API de Blogger con el botón superior."); return; }
+
+            statusEl.innerText = "⏳ Consultando AniList...";
+
+            const query = `query ($id: Int) { Media (id: $id, type: ANIME) { id title { romaji english } description status coverImage { extraLarge } } }`;
+            try {
+                const response = await fetch('https://graphql.anilist.co', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ query, variables: { id: parseInt(aniId) } })
+                });
+                const resData = await response.json();
+                if(resData.errors) {
+                    statusEl.innerText = "❌ Error: ID no encontrado en AniList.";
+                    return;
+                }
+                const anime = resData.data.Media;
+                const title = anime.title.romaji || anime.title.english;
+                const contentHtml = `<h2>${title}</h2><p>${anime.description}</p><img src="${anime.coverImage.extraLarge}"/>`;
+
+                // Enviar a Blogger API
+                statusEl.innerText = "🚀 Publicando en Blogger...";
+                const bloggerRes = await fetch(`https://www.googleapis.com/blogger/v3/blogs/${blogId}/posts/`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${googleAccessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: title,
+                        content: contentHtml
+                    })
+                });
+
+                if(!bloggerRes.ok) {
+                    throw new Error("Error al publicar en Blogger. Revisa tu Blog ID o permisos.");
+                }
+
+                // Guardar en Firestore
+                statusEl.innerText = "💾 Guardando en Firestore...";
+                await addDoc(collection(db, "anime_series"), {
+                    aniId: parseInt(aniId),
+                    title: title,
+                    status: anime.status,
+                    createdAt: new Date().toISOString()
+                });
+
+                statusEl.innerText = "✅ ¡Serie publicada en Blogger y guardada en Firestore!";
+                loadDatabaseSeries();
+            } catch(e) {
+                statusEl.innerText = "❌ Error: " + e.message;
+            }
+        }
+
+        window.generateEpisodeCode = function() {
+            const epNum = document.getElementById('epNum').value.trim();
+            if(!epNum) { alert("Ingresa el número de episodio."); return; }
+            document.getElementById('epResultCode').value = `<!-- Código de Episodio ${epNum} generado correctamente -->`;
+            document.getElementById('epStatus').innerText = "✅ Episodio generado con éxito.";
+        }
     </script>
 </head>
 <body>
@@ -118,10 +212,10 @@
             <label>Contraseña</label>
             <input type="password" id="password" placeholder="••••••••">
         </div>
-        <button onclick="loginUser()" style="margin-top: 10px;">Ingresar al Panel</button>
+        <button onclick="loginUser()">Ingresar al Panel</button>
     </div>
 
-    <!-- VISTA 2: PANEL DE CONTROL (DASHBOARD) -->
+    <!-- VISTA 2: PANEL DE CONTROL -->
     <div id="dashboardView" class="dashboard" style="display: none;">
         <div class="logout-bar">
             <span style="font-size: 13px; color: #9ca3af;">Conectado como: <b id="userEmailDisplay" style="color: var(--cyan);"></b></span>
@@ -130,7 +224,16 @@
 
         <h2>⚡ Panel Centralizado Anime V1</h2>
 
-        <!-- Pestañas de Navegación -->
+        <!-- Barra de autorización Blogger -->
+        <div class="google-auth-box">
+            <div>
+                <span style="font-size: 12px; font-weight: bold; text-transform: uppercase; color: var(--cyan); display: block;">Permisos de Google Blogger</span>
+                <span id="googleAuthStatus" style="font-size: 12px; color: #fbbf24;">🔴 Desconectado de Blogger</span>
+            </div>
+            <button onclick="connectBlogger()" style="width: auto; background: #2563eb; margin-top: 0;">Conectar Cuenta Google</button>
+        </div>
+
+        <!-- Pestañas -->
         <div class="nav-tabs">
             <button class="active" onclick="switchTab('series', event)">📺 Publicar Serie</button>
             <button onclick="switchTab('episodes', event)">🎬 Publicar Episodio</button>
@@ -141,10 +244,10 @@
         <div id="tab-series" class="tab-pane active">
             <div class="row">
                 <div><label>AniList ID (Serie):</label><input type="number" id="seriesAniId" placeholder="Ej: 21"></div>
-                <div><label>Contraseña VIP:</label><input type="text" id="seriesVipPass" value="1234"></div>
+                <div><label>Blog ID de Blogger:</label><input type="text" id="blogId" placeholder="Tu Blog ID numérico"></div>
             </div>
             <div class="row">
-                <div><label>Blog ID de Blogger:</label><input type="text" id="blogId" placeholder="Tu Blog ID numérico"></div>
+                <div><label>Contraseña VIP:</label><input type="text" id="seriesVipPass" value="1234"></div>
                 <div><label>Link Canal Telegram:</label><input type="text" id="telegramUrl" value="https://t.me/animev1net"></div>
             </div>
             <div class="server-section">
@@ -158,9 +261,9 @@
                     <input type="text" id="driveLat" placeholder="Link G-Drive Latino">
                 </div>
             </div>
-            <div id="seriesStatus" class="status-msg">Listo para consultar AniList y registrar serie...</div>
-            <button onclick="generateAndSaveSeries()">🚀 Generar y Registrar Serie en Firestore</button>
-            <textarea id="seriesResultCode" placeholder="Código HTML generado..." readonly></textarea>
+            <div id="seriesStatus" class="status-msg">Listo para consultar AniList y publicar en Blogger...</div>
+            <button onclick="generateAndSaveSeries()">🚀 Publicar en Blogger & Registrar en Firestore</button>
+            <textarea id="seriesResultCode" placeholder="Registro y estado de publicación..." readonly></textarea>
         </div>
 
         <!-- Pestaña 2: Publicar Episodio -->
@@ -185,9 +288,9 @@
             <textarea id="epResultCode" placeholder="Código HTML del episodio..." readonly></textarea>
         </div>
 
-        <!-- Pestaña 3: Base de Datos / Monitoreo AniList -->
+        <!-- Pestaña 3: Base de Datos -->
         <div id="tab-database" class="tab-pane">
-            <p style="font-size: 13px; color: #9ca3af; margin-bottom: 15px;">Listado de series registradas en Firestore. Aquí podrás verificar su estado en tiempo real con AniList.</p>
+            <p style="font-size: 13px; color: #9ca3af; margin-bottom: 15px;">Listado de series registradas en Firestore.</p>
             <div id="dbListContainer" style="background: #030712; padding: 20px; border-radius: 8px; border: 1px solid #1f2937; min-height: 150px; text-align: center; color: #6b7280;">
                 Cargando series...
             </div>
@@ -198,60 +301,8 @@
         function switchTab(tabName, event) {
             document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-tabs button').forEach(el => el.classList.remove('active'));
-            
             document.getElementById('tab-' + tabName).classList.add('active');
             event.currentTarget.classList.add('active');
-        }
-
-        // Lógica base para conectar AniList en la pestaña de series
-        async function generateAndSaveSeries() {
-            const aniId = document.getElementById('seriesAniId').value.trim();
-            const statusEl = document.getElementById('seriesStatus');
-            if(!aniId) {
-                alert("Ingresa un ID de AniList válido.");
-                return;
-            }
-            statusEl.innerText = "⏳ Consultando AniList...";
-
-            const query = `query ($id: Int) { Media (id: $id, type: ANIME) { id title { romaji english } description status coverImage { extraLarge } } }`;
-            try {
-                const response = await fetch('https://graphql.anilist.co', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({ query, variables: { id: parseInt(aniId) } })
-                });
-                const resData = await response.json();
-                if(resData.errors) {
-                    statusEl.innerText = "❌ Error: ID no encontrado en AniList.";
-                    return;
-                }
-                const anime = resData.data.Media;
-                const title = anime.title.romaji || anime.title.english;
-                
-                // Guardar en Firestore
-                statusEl.innerText = "💾 Guardando en Firestore...";
-                await window.dbRef.addDoc(window.dbRef.collection(window.dbRef.db, "anime_series"), {
-                    aniId: parseInt(aniId),
-                    title: title,
-                    status: anime.status,
-                    createdAt: new Date().toISOString()
-                });
-
-                statusEl.innerText = "✅ ¡Serie procesada y guardada en la base de datos!";
-                document.getElementById('seriesResultCode').value = `<!-- Serie: ${title} [AniList ID: ${aniId}] - Estado: ${anime.status} -->`;
-            } catch(e) {
-                statusEl.innerText = "❌ Error: " + e.message;
-            }
-        }
-
-        function generateEpisodeCode() {
-            const epNum = document.getElementById('epNum').value.trim();
-            if(!epNum) {
-                alert("Ingresa el número de episodio.");
-                return;
-            }
-            document.getElementById('epResultCode').value = `<!-- Código de Episodio ${epNum} generado correctamente -->`;
-            document.getElementById('epStatus').innerText = "✅ Episodio generado con éxito.";
         }
     </script>
 </body>
