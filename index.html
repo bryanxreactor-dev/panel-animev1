@@ -140,7 +140,7 @@
         }
 
         async function translateToSpanish(text) {
-            if (!text) return "Sin sinopsis disponible.";
+            if (!text) return "Sinopsis no disponible.";
             const cleanText = text.replace(/<[^>]*>?/gm, '');
             try {
                 const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(cleanText)}&langpair=en|es`);
@@ -154,17 +154,9 @@
             return cleanText;
         }
 
-        function formatDate(startDate) {
-            if (!startDate || !startDate.year || !startDate.month || !startDate.day) {
-                return "12 de octubre de 2026";
-            }
-            const months = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
-            return `${startDate.day} de ${months[startDate.month - 1]} de ${startDate.year}`;
-        }
-
         window.generateAndSaveSeries = async function() {
             const btn = document.getElementById('btnPublishSeries');
-            btn.disabled = true; // Evitar doble clic y duplicados
+            btn.disabled = true;
 
             const source = document.getElementById('dataSource').value;
             const animeId = document.getElementById('seriesAniId').value.trim();
@@ -233,7 +225,6 @@
 
                 const estrenoFecha = "12 de octubre de 2026";
 
-                // Plataformas oficiales filtradas
                 let streamingHTML = '';
                 if (externalLinks.length > 0) {
                     const streamingPlatforms = externalLinks.filter(link => 
@@ -249,7 +240,6 @@
                     }
                 }
 
-                // Personajes y Actores de voz en GIF / Estilo Original
                 let charactersHTML = '';
                 if (characters.length > 0) {
                     charactersHTML = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 20px 0;">';
@@ -271,7 +261,6 @@
                     <iframe width="100%" height="315" src="https://www.youtube.com/embed/${trailerId}" frameborder="0" allowfullscreen></iframe>
                 </div>` : '';
 
-                // Estructura limpia exacta con GIF en el contador de episodios
                 const contentHtml = `
 <div class="separator" style="clear: both; text-align: center;"><img src="${coverImg}" /></div>
 
@@ -331,7 +320,7 @@ ${charactersHTML}
             } catch(e) {
                 statusEl.innerText = "❌ Error: " + e.message;
             } finally {
-                btn.disabled = false; // Reactivar botón
+                btn.disabled = false;
             }
         }
 
@@ -372,7 +361,7 @@ ${charactersHTML}
                 if(s7) options += `<option value="https://voe.sx/e/${s7}">VOE ⭐</option>`;
                 if(sH) options += `<option value="https://morencius.com/embed/${sH}">Hide 🔒</option>`;
 
-                let firstFrame = sF ? `https://player.animev1.net/?v=${sF}` : (s6 ? `https://streamwish.to/e/${s6}` : '');
+                let firstFrame = sF ? `https://player.animev1.net/?v=${sF}` : (s6 ? `https://streamwish.to/e/${s6}` : (s7 ? `https://voe.sx/e/${s7}` : (sH ? `https://morencius.com/embed/${sH}` : '')));
 
                 const contentHtml = `
 <div style="text-align: justify;">
@@ -488,6 +477,9 @@ ${charactersHTML}
             <div class="row">
                 <div><label>ID Streamwish</label><input type="text" id="idWish" placeholder="Ej: pcs94xfgl99i"></div>
                 <div><label>ID VOE.SX</label><input type="text" id="idVoe" placeholder="Ej: rq9mviohb2n1"></div>
+            </div>
+            <div class="row">
+                <div><label>ID Hide</label><input type="text" id="idHide" placeholder="Ej: zi8ld9k00dbb"></div>
             </div>
             <div id="epStatus" class="status-msg">Listo para episodio...</div>
             <button id="btnPublishEp" onclick="generateEpisodeCode()">🚀 Publicar Episodio en Blogger</button>
