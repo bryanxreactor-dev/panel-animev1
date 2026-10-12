@@ -123,10 +123,9 @@
             }
         }
 
-        // Traductor automático de sinopsis al español mediante API pública gratuita
+        // Traductor automático de sinopsis al español
         async function translateToSpanish(text) {
             if (!text) return "Sin sinopsis disponible.";
-            // Limpiar etiquetas HTML de AniList si las hubiera
             const cleanText = text.replace(/<[^>]*>?/gm, '');
             try {
                 const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(cleanText)}&langpair=en|es`);
@@ -137,7 +136,7 @@
             } catch (e) {
                 console.error("Error traduciendo sinopsis:", e);
             }
-            return cleanText; // Retorna original si falla
+            return cleanText;
         }
 
         // Publicar Serie con etiquetas automáticas y formato solicitado
@@ -168,26 +167,25 @@
                 const title = anime.title.romaji || anime.title.english;
                 
                 statusEl.innerText = "🌐 Traduciendo sinopsis al español...";
-                const spanishDesc = await translateTitleOrDesc ? await translateToSpanish(anime.description) : anime.description;
+                const spanishDesc = await translateToSpanish(anime.description);
 
                 // Construcción automática de etiquetas
                 let tags = ["Series", "Sub"];
-                if (anime.format) tags.push(anime.format); // TV, ONA, OVA, Movie, Special
-                if (anime.status) tags.push(anime.status); // FINISHED, RELEASING, NOT_YET_RELEASED -> Mapeado a Ongoing/Completed/Upcoming
-                if (anime.genres) {
-                    anime.genres.forEach(g => tags.push(g)); // Géneros en inglés
-                }
-                if (anime.season && anime.seasonYear) {
-                    // Formato: Fall 2026, Summer 2026, etc.
-                    const seasonCapitalized = anime.season.charAt(0) + anime.season.slice(1).toLowerCase();
-                    tags.push(`${seasonCapitalized} ${anime.seasonYear}`);
-                }
-
-                // Mapeo amigable de estados
+                if (anime.format) tags.push(anime.format);
+                
                 let readableStatus = anime.status;
                 if(anime.status === "RELEASING") readableStatus = "Ongoing";
                 else if(anime.status === "FINISHED") readableStatus = "Completed";
                 else if(anime.status === "NOT_YET_RELEASED") readableStatus = "Upcoming";
+                tags.push(readableStatus);
+
+                if (anime.genres) {
+                    anime.genres.forEach(g => tags.push(g));
+                }
+                if (anime.season && anime.seasonYear) {
+                    const seasonCapitalized = anime.season.charAt(0) + anime.season.slice(1).toLowerCase();
+                    tags.push(`${seasonCapitalized} ${anime.seasonYear}`);
+                }
 
                 const contentHtml = `<h2>${title}</h2><p>${spanishDesc}</p><img src="${anime.coverImage.extraLarge}"/>`;
 
@@ -228,7 +226,7 @@
             }
         }
 
-        // Publicar Episodio con etiquetas automáticas: Episode, Sub y Nombre de la serie
+        // Publicar Episodio
         window.generateEpisodeCode = async function() {
             const aniId = document.getElementById('epAniId').value.trim();
             const epNum = document.getElementById('epNum').value.trim();
@@ -258,11 +256,7 @@
                 const seriesTitle = anime.title.romaji || anime.title.english;
                 const postTitle = `${seriesTitle} - ${epNum}`;
                 
-                // Etiquetas estrictas para episodios: Episode, Sub y Nombre de la serie
                 const epTags = ["Episode", "Sub", seriesTitle];
-
-                const idFast = document.getElementById('idFast').value;
-                const idWish = document.getElementById('idWish').value;
                 const contentHtml = `<h3>Ver ${postTitle}</h3><p>Servidores disponibles...</p>`;
 
                 statusEl.innerText = "🚀 Publicando Episodio en Blogger...";
