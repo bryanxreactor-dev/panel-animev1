@@ -30,18 +30,17 @@
         
         textarea { width: 100%; height: 180px; background: #030712; color: var(--cyan); border: 1px solid #374151; padding: 15px; font-family: monospace; border-radius: 8px; box-sizing: border-box; margin-top: 15px; font-size: 12px; resize: none; }
         .status-msg { text-align: center; font-size: 13px; font-weight: bold; margin-top: 10px; min-height: 20px; color: #fbbf24; }
-        .server-section { background: #030712; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #1f2937; }
         .google-auth-box { background: #030712; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #1f2937; display: flex; justify-content: space-between; align-items: center; }
+        
+        .action-btn { background: #2563eb; padding: 5px 10px; font-size: 11px; width: auto; margin-top: 0; margin-left: 10px; }
     </style>
 
-    <!-- Google Identity Services para OAuth -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-    <!-- Firebase SDK Modular -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAl1LauNyrok_RCHnfQcPYJZj6d2FMeL9Y",
@@ -110,10 +109,16 @@
                     return;
                 }
                 let html = "<ul style='list-style:none; padding:0; text-align:left;'>";
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    html += `<li style="background:#111827; padding:10px; margin-bottom:8px; border-radius:5px; border-left:3px solid #ff0055;">
-                        <b>ID AniList:</b> ${data.aniId} | <b>Título:</b> ${data.title} | <b>Estado:</b> <span style="color:#00ffcc;">${data.status}</span>
+                querySnapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    const docId = docSnap.id;
+                    html += `<li style="background:#111827; padding:12px; margin-bottom:8px; border-radius:5px; border-left:3px solid #ff0055; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <b>ID:</b> ${data.aniId} | <b>Título:</b> ${data.title} | <b>Estado:</b> <span style="color:#00ffcc;">${data.status}</span>
+                        </div>
+                        <div>
+                            ${data.status !== 'Completed' ? `<button class="action-btn" onclick="updateSeriesStatus('${docId}')">Marcar Finalizado</button>` : `<span style="font-size:11px; color:#10b981;">✓ Finalizado</span>`}
+                        </div>
                     </li>`;
                 });
                 html += "</ul>";
@@ -123,7 +128,19 @@
             }
         }
 
-        // Traductor automático de sinopsis al español
+        window.updateSeriesStatus = async function(docId) {
+            try {
+                const seriesRef = doc(db, "anime_series", docId);
+                await updateDoc(seriesRef, {
+                    status: "Completed"
+                });
+                alert("¡Estado actualizado a Completed en Firestore!");
+                loadDatabaseSeries();
+            } catch(e) {
+                alert("Error al actualizar estado: " + e.message);
+            }
+        }
+
         async function translateToSpanish(text) {
             if (!text) return "Sin sinopsis disponible.";
             const cleanText = text.replace(/<[^>]*>?/gm, '');
@@ -139,57 +156,102 @@
             return cleanText;
         }
 
-        // Publicar Serie con etiquetas automáticas y formato solicitado
         window.generateAndSaveSeries = async function() {
-            const aniId = document.getElementById('seriesAniId').value.trim();
+            const source = document.getElementById('dataSource').value;
+            const animeId = document.getElementById('seriesAniId').value.trim();
             const blogId = document.getElementById('blogId').value.trim();
             const statusEl = document.getElementById('seriesStatus');
             
-            if(!aniId) { alert("Ingresa un ID de AniList."); return; }
+            if(!animeId) { alert("Ingresa un ID válido."); return; }
             if(!blogId) { alert("Ingresa tu Blog ID de Blogger."); return; }
             if(!googleAccessToken) { alert("Primero conéctate a la API de Blogger con el botón superior."); return; }
 
-            statusEl.innerText = "⏳ Consultando AniList...";
+            statusEl.innerText = `⏳ Consultando ${source === 'anilist' ? 'AniList' : 'MyAnimeList'}...`;
 
-            const query = `query ($id: Int) { Media (id: $id, type: ANIME) { id title { romaji english } description status format genres season seasonYear coverImage { extraLarge } } }`;
+            let title = "", description = "", status = "", format = "", genres = [], season = "", seasonYear = "", coverImg = "", rating = "N/A", studio = "N/A", episodes = null;
+
             try {
-                const response = await fetch('https://graphql.anilist.co', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({ query, variables: { id: parseInt(aniId) } })
-                });
-                const resData = await response.json();
-                if(resData.errors) {
-                    statusEl.innerText = "❌ Error: ID no encontrado en AniList.";
-                    return;
+                if (source === 'anilist') {
+                    const query = `query ($id: Int) { Media (id: $id, type: ANIME) { id title { romaji english } description status format genres season seasonYear episodes averageScore studios(isMain: true) { nodes { name } } coverImage { extraLarge } } }`;
+                    const response = await fetch('https://graphql.anilist.co', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({ query, variables: { id: parseInt(animeId) } })
+                    });
+                    const resData = await response.json();
+                    if(resData.errors) { statusEl.innerText = "❌ Error: ID no encontrado."; return; }
+                    
+                    const anime = resData.data.Media;
+                    title = anime.title.romaji || anime.title.english;
+                    description = anime.description;
+                    status = anime.status;
+                    format = anime.format;
+                    genres = anime.genres || [];
+                    season = anime.season;
+                    seasonYear = anime.seasonYear;
+                    coverImg = anime.coverImage.extraLarge;
+                    episodes = anime.episodes;
+                    rating = anime.averageScore ? (anime.averageScore / 10).toFixed(2) : "N/A";
+                    if(anime.studios && anime.studios.nodes.length > 0) {
+                        studio = anime.studios.nodes[0].name;
+                    }
+                } else {
+                    const res = await fetch(`https://api.jikan.moe/v4/anime/${animeId}`);
+                    const json = await res.json();
+                    if(!json.data) { statusEl.innerText = "❌ Error: ID no encontrado en MyAnimeList."; return; }
+                    
+                    const anime = json.data;
+                    title = anime.title_english || anime.title;
+                    description = anime.synopsis;
+                    status = anime.status;
+                    format = anime.type;
+                    genres = anime.genres ? anime.genres.map(g => g.name) : [];
+                    coverImg = anime.images.jpg.large_image_url;
+                    episodes = anime.episodes;
+                    rating = anime.score ? anime.score.toFixed(2) : "N/A";
+                    if(anime.studios && anime.studios.length > 0) {
+                        studio = anime.studios[0].name;
+                    }
+                    if(anime.season && anime.year) {
+                        season = anime.season;
+                        seasonYear = anime.year;
+                    }
                 }
-                const anime = resData.data.Media;
-                const title = anime.title.romaji || anime.title.english;
-                
-                statusEl.innerText = "🌐 Traduciendo sinopsis al español...";
-                const spanishDesc = await translateToSpanish(anime.description);
 
-                // Construcción automática de etiquetas
+                statusEl.innerText = "🌐 Traduciendo sinopsis al español...";
+                const spanishDesc = await translateToSpanish(description);
+
                 let tags = ["Series", "Sub"];
-                if (anime.format) tags.push(anime.format);
+                if (format) tags.push(format);
                 
-                let readableStatus = anime.status;
-                if(anime.status === "RELEASING") readableStatus = "Ongoing";
-                else if(anime.status === "FINISHED") readableStatus = "Completed";
-                else if(anime.status === "NOT_YET_RELEASED") readableStatus = "Upcoming";
+                let readableStatus = status;
+                if(status === "RELEASING" || status === "Currently Airing") readableStatus = "Ongoing";
+                else if(status === "FINISHED" || status === "Finished Airing") readableStatus = "Completed";
+                else if(status === "NOT_YET_RELEASED") readableStatus = "Upcoming";
                 tags.push(readableStatus);
 
-                if (anime.genres) {
-                    anime.genres.forEach(g => tags.push(g));
+                if (genres.length > 0) {
+                    genres.forEach(g => tags.push(g));
                 }
-                if (anime.season && anime.seasonYear) {
-                    const seasonCapitalized = anime.season.charAt(0) + anime.season.slice(1).toLowerCase();
-                    tags.push(`${seasonCapitalized} ${anime.seasonYear}`);
+                if (season && seasonYear) {
+                    const seasonCapitalized = season.charAt(0) + season.slice(1).toLowerCase();
+                    tags.push(`${seasonCapitalized} ${seasonYear}`);
                 }
 
-                const contentHtml = `<h2>${title}</h2><p>${spanishDesc}</p><img src="${anime.coverImage.extraLarge}"/>`;
+                const epsDisplay = episodes ? `Eps. ${episodes}` : "Eps. null";
 
-                // Enviar a Blogger API
+                const contentHtml = `
+                    <div style="background:#111827; color:#fff; padding:15px; border-radius:8px;">
+                        <img src="${coverImg}" style="float:left; width:150px; margin-right:15px; border-radius:6px;"/>
+                        <h3>${title}</h3>
+                        <p><b>Rating:</b> ${rating} | <b>Status:</b> ${readableStatus}</p>
+                        <p><b>Episode:</b> ${epsDisplay} | <b>Studio:</b> ${studio}</p>
+                        <p><b>Type:</b> ${format} | <b>Season:</b> ${season ? season + ' ' + seasonYear : 'N/A'}</p>
+                        <div style="clear:both;"></div>
+                        <p style="margin-top:15px;">${spanishDesc}</p>
+                    </div>
+                `;
+
                 statusEl.innerText = "🚀 Publicando en Blogger...";
                 const bloggerRes = await fetch(`https://www.googleapis.com/blogger/v3/blogs/${blogId}/posts/`, {
                     method: 'POST',
@@ -204,42 +266,35 @@
                     })
                 });
 
-                if(!bloggerRes.ok) {
-                    throw new Error("Error al publicar en Blogger. Revisa tu Blog ID o permisos.");
-                }
+                if(!bloggerRes.ok) throw new Error("Error al publicar en Blogger.");
 
-                // Guardar en Firestore
                 statusEl.innerText = "💾 Guardando en Firestore...";
                 await addDoc(collection(db, "anime_series"), {
-                    aniId: parseInt(aniId),
+                    aniId: parseInt(animeId),
                     title: title,
                     status: readableStatus,
                     tags: tags,
                     createdAt: new Date().toISOString()
                 });
 
-                statusEl.innerText = "✅ ¡Serie publicada con etiquetas automáticas y sinopsis en español!";
-                document.getElementById('seriesResultCode').value = `Etiquetas asignadas: ${tags.join(", ")}`;
+                statusEl.innerText = "✅ ¡Serie publicada con éxito!";
+                document.getElementById('seriesResultCode').value = `Publicado: ${title}\nEtiquetas: ${tags.join(", ")}`;
                 loadDatabaseSeries();
             } catch(e) {
                 statusEl.innerText = "❌ Error: " + e.message;
             }
         }
 
-        // Publicar Episodio
         window.generateEpisodeCode = async function() {
             const aniId = document.getElementById('epAniId').value.trim();
             const epNum = document.getElementById('epNum').value.trim();
             const blogId = document.getElementById('blogIdEp').value.trim();
             const statusEl = document.getElementById('epStatus');
             
-            if(!aniId) { alert("Ingresa el ID de AniList de la serie."); return; }
-            if(!epNum) { alert("Ingresa el número de episodio."); return; }
-            if(!blogId) { alert("Ingresa tu Blog ID de Blogger."); return; }
-            if(!googleAccessToken) { alert("Primero conéctate a la API de Blogger con el botón superior."); return; }
+            if(!aniId || !epNum || !blogId) { alert("Completa todos los campos del episodio."); return; }
+            if(!googleAccessToken) { alert("Primero conéctate a la API de Blogger."); return; }
 
-            statusEl.innerText = "⏳ Obteniendo datos de la serie para el episodio...";
-
+            statusEl.innerText = "⏳ Obteniendo datos para el episodio...";
             const query = `query ($id: Int) { Media (id: $id, type: ANIME) { title { romaji english } } }`;
             try {
                 const response = await fetch('https://graphql.anilist.co', {
@@ -248,10 +303,6 @@
                     body: JSON.stringify({ query, variables: { id: parseInt(aniId) } })
                 });
                 const resData = await response.json();
-                if(resData.errors) {
-                    statusEl.innerText = "❌ Error: Serie no encontrada en AniList.";
-                    return;
-                }
                 const anime = resData.data.Media;
                 const seriesTitle = anime.title.romaji || anime.title.english;
                 const postTitle = `${seriesTitle} - ${epNum}`;
@@ -259,25 +310,15 @@
                 const epTags = ["Episode", "Sub", seriesTitle];
                 const contentHtml = `<h3>Ver ${postTitle}</h3><p>Servidores disponibles...</p>`;
 
-                statusEl.innerText = "🚀 Publicando Episodio en Blogger...";
+                statusEl.innerText = "🚀 Publicando Episodio...";
                 const bloggerRes = await fetch(`https://www.googleapis.com/blogger/v3/blogs/${blogId}/posts/`, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${googleAccessToken}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        title: postTitle,
-                        content: contentHtml,
-                        labels: epTags
-                    })
+                    headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: postTitle, content: contentHtml, labels: epTags })
                 });
 
-                if(!bloggerRes.ok) {
-                    throw new Error("Error al publicar el episodio en Blogger.");
-                }
-
-                statusEl.innerText = "✅ ¡Episodio publicado con éxito!";
+                if(!bloggerRes.ok) throw new Error("Error al publicar episodio.");
+                statusEl.innerText = "✅ ¡Episodio publicado!";
                 document.getElementById('epResultCode').value = `Publicado: ${postTitle}\nEtiquetas: ${epTags.join(", ")}`;
             } catch(e) {
                 statusEl.innerText = "❌ Error: " + e.message;
@@ -287,7 +328,6 @@
 </head>
 <body>
 
-    <!-- VISTA 1: LOGIN -->
     <div id="authView" class="auth-box" style="max-width: 400px;">
         <h2>🔐 Acceso Admin</h2>
         <div class="input-group" style="margin-top: 20px;">
@@ -301,7 +341,6 @@
         <button onclick="loginUser()">Ingresar al Panel</button>
     </div>
 
-    <!-- VISTA 2: PANEL DE CONTROL -->
     <div id="dashboardView" class="dashboard" style="display: none;">
         <div class="logout-bar">
             <span style="font-size: 13px; color: #9ca3af;">Conectado como: <b id="userEmailDisplay" style="color: var(--cyan);"></b></span>
@@ -310,7 +349,6 @@
 
         <h2>⚡ Panel Centralizado Anime V1</h2>
 
-        <!-- Barra de autorización Blogger -->
         <div class="google-auth-box">
             <div>
                 <span style="font-size: 12px; font-weight: bold; text-transform: uppercase; color: var(--cyan); display: block;">Permisos de Google Blogger</span>
@@ -319,42 +357,47 @@
             <button onclick="connectBlogger()" style="width: auto; background: #2563eb; margin-top: 0;">Conectar Cuenta Google</button>
         </div>
 
-        <!-- Pestañas -->
         <div class="nav-tabs">
             <button class="active" onclick="switchTab('series', event)">📺 Publicar Serie</button>
             <button onclick="switchTab('episodes', event)">🎬 Publicar Episodio</button>
-            <button onclick="switchTab('database', event)">🗄️ Base de Datos (AniList)</button>
+            <button onclick="switchTab('database', event)">🗄️ Base de Datos</button>
         </div>
 
-        <!-- Pestaña 1: Publicar Serie -->
         <div id="tab-series" class="tab-pane active">
             <div class="row">
-                <div><label>AniList ID (Serie):</label><input type="number" id="seriesAniId" placeholder="Ej: 21"></div>
-                <div><label>Blog ID de Blogger:</label><input type="text" id="blogId" placeholder="Tu Blog ID numérico"></div>
+                <div>
+                    <label>Fuente de Datos:</label>
+                    <select id="dataSource">
+                        <option value="anilist">AniList</option>
+                        <option value="mal">MyAnimeList (MAL)</option>
+                    </select>
+                </div>
+                <div><label>ID de Anime:</label><input type="number" id="seriesAniId" placeholder="Ej: 21"></div>
             </div>
-            <div id="seriesStatus" class="status-msg">Listo para consultar AniList, traducir sinopsis y auto-etiquetar...</div>
+            <div class="row">
+                <div><label>Blog ID de Blogger:</label><input type="text" id="blogId" value="5938297539101113182"></div>
+            </div>
+            <div id="seriesStatus" class="status-msg">Listo para publicar...</div>
             <button onclick="generateAndSaveSeries()">🚀 Publicar Serie en Blogger & Firestore</button>
-            <textarea id="seriesResultCode" placeholder="Resultados y etiquetas aplicadas..." readonly></textarea>
+            <textarea id="seriesResultCode" placeholder="Resultados..." readonly></textarea>
         </div>
 
-        <!-- Pestaña 2: Publicar Episodio -->
         <div id="tab-episodes" class="tab-pane">
             <div class="row">
                 <div><label>AniList ID (Serie):</label><input type="number" id="epAniId" placeholder="Ej: 21"></div>
                 <div><label>Nº de Episodio:</label><input type="text" id="epNum" placeholder="Ej: 01"></div>
             </div>
             <div class="row">
-                <div><label>Blog ID de Blogger:</label><input type="text" id="blogIdEp" placeholder="Tu Blog ID numérico"></div>
+                <div><label>Blog ID de Blogger:</label><input type="text" id="blogIdEp" value="5938297539101113182"></div>
                 <div><label>Fast ID / Servidor</label><input type="text" id="idFast" placeholder="Ej: pSYWS7BYg"></div>
             </div>
-            <div id="epStatus" class="status-msg">Listo para publicar episodio...</div>
+            <div id="epStatus" class="status-msg">Listo para episodio...</div>
             <button onclick="generateEpisodeCode()">🚀 Publicar Episodio en Blogger</button>
-            <textarea id="epResultCode" placeholder="Estado y etiquetas del episodio..." readonly></textarea>
+            <textarea id="epResultCode" placeholder="Estado del episodio..." readonly></textarea>
         </div>
 
-        <!-- Pestaña 3: Base de Datos -->
         <div id="tab-database" class="tab-pane">
-            <p style="font-size: 13px; color: #9ca3af; margin-bottom: 15px;">Listado de series registradas en Firestore.</p>
+            <p style="font-size: 13px; color: #9ca3af; margin-bottom: 15px;">Listado de series registradas.</p>
             <div id="dbListContainer" style="background: #030712; padding: 20px; border-radius: 8px; border: 1px solid #1f2937; min-height: 150px; text-align: center; color: #6b7280;">
                 Cargando series...
             </div>
