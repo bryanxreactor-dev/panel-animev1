@@ -140,7 +140,7 @@
         }
 
         async function translateToSpanish(text) {
-            if (!text) return "Sinopsis no disponible.";
+            if (!text) return "Sin sinopsis disponible.";
             const cleanText = text.replace(/<[^>]*>?/gm, '');
             try {
                 const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(cleanText)}&langpair=en|es`);
@@ -170,11 +170,11 @@
 
             statusEl.innerText = `⏳ Consultando ${source === 'anilist' ? 'AniList' : 'MyAnimeList'}...`;
 
-            let title = "", description = "", status = "", format = "", genres = [], coverImg = "", nextEpNumber = 1, trailerId = "", externalLinks = [], characters = [];
+            let title = "", description = "", status = "", format = "", genres = [], coverImg = "", nextEpNumber = 1, trailerId = "", externalLinks = [], characters = [], season = "", seasonYear = "";
 
             try {
                 if (source === 'anilist') {
-                    const query = `query ($id: Int) { Media (id: $id, type: ANIME) { id title { romaji english } description status format genres coverImage { extraLarge } trailer { id site } nextAiringEpisode { episode } startDate { year month day } externalLinks { site type } characters (sort: ROLE, perPage: 6) { edges { node { name { full } image { medium } } voiceActors (language: JAPANESE) { name { full } } } } } }`;
+                    const query = `query ($id: Int) { Media (id: $id, type: ANIME) { id title { romaji english } description status format genres season seasonYear coverImage { extraLarge } trailer { id site } nextAiringEpisode { episode } externalLinks { site type } characters (sort: ROLE, perPage: 6) { edges { node { name { full } image { medium } } voiceActors (language: JAPANESE) { name { full } } } } } }`;
                     const response = await fetch('https://graphql.anilist.co', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -189,6 +189,8 @@
                     status = anime.status;
                     format = anime.format;
                     genres = anime.genres || [];
+                    season = anime.season;
+                    seasonYear = anime.seasonYear;
                     coverImg = anime.coverImage.extraLarge;
                     if(anime.trailer && anime.trailer.site && anime.trailer.site.toLowerCase() === 'youtube') { trailerId = anime.trailer.id; }
                     if(anime.nextAiringEpisode) { nextEpNumber = anime.nextAiringEpisode.episode; }
@@ -207,12 +209,13 @@
                     genres = anime.genres ? anime.genres.map(g => g.name) : [];
                     coverImg = anime.images.jpg.large_image_url;
                     if(anime.trailer && anime.trailer.youtube_id) { trailerId = anime.trailer.youtube_id; }
+                    if(anime.season && anime.year) { season = anime.season; seasonYear = anime.year; }
                 }
 
                 statusEl.innerText = "🌐 Traduciendo sinopsis al español...";
                 const spanishDesc = await translateToSpanish(description);
 
-                let tags = ["Series", "Sub"];
+                let tags = ["Series", "Sub", title];
                 if (format) tags.push(format);
                 
                 let readableStatus = status;
@@ -222,6 +225,11 @@
                 tags.push(readableStatus);
 
                 if (genres.length > 0) { genres.forEach(g => tags.push(g)); }
+                
+                if (season && seasonYear) {
+                    const seasonCapitalized = season.charAt(0) + season.slice(1).toLowerCase();
+                    tags.push(`${seasonCapitalized} ${seasonYear}`);
+                }
 
                 const estrenoFecha = "12 de octubre de 2026";
 
@@ -285,6 +293,10 @@ ${trailerHtml}
 
 ${charactersHTML}
 
+<script type='text/javascript'>
+  var label_episode = '${title}';
+<\/script>
+
 <style>
     @keyframes color-gif { 0%, 100% { color: #ff0055; } 50% { color: #00ffcc; } }
 </style>`;
@@ -305,6 +317,7 @@ ${charactersHTML}
 
                 if(!bloggerRes.ok) throw new Error("Error al publicar en Blogger. Reautoriza tu cuenta.");
 
+                // Guardado en Firestore explícito y verificado
                 statusEl.innerText = "💾 Guardando en Firestore...";
                 await addDoc(collection(db, "anime_series"), {
                     aniId: parseInt(animeId),
@@ -314,7 +327,7 @@ ${charactersHTML}
                     createdAt: new Date().toISOString()
                 });
 
-                statusEl.innerText = "✅ ¡Serie publicada correctamente!";
+                statusEl.innerText = "✅ ¡Serie publicada en Blogger y guardada en Firestore!";
                 document.getElementById('seriesResultCode').value = `Publicado: ${title}\nEtiquetas: ${tags.join(", ")}`;
                 loadDatabaseSeries();
             } catch(e) {
