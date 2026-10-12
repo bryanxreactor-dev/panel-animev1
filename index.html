@@ -317,7 +317,6 @@ ${charactersHTML}
 
                 if(!bloggerRes.ok) throw new Error("Error al publicar en Blogger. Reautoriza tu cuenta.");
 
-                // Guardado en Firestore explícito y verificado
                 statusEl.innerText = "💾 Guardando en Firestore...";
                 await addDoc(collection(db, "anime_series"), {
                     aniId: parseInt(animeId),
@@ -327,7 +326,7 @@ ${charactersHTML}
                     createdAt: new Date().toISOString()
                 });
 
-                statusEl.innerText = "✅ ¡Serie publicada en Blogger y guardada en Firestore!";
+                statusEl.innerText = "✅ ¡Serie publicada correctamente!";
                 document.getElementById('seriesResultCode').value = `Publicado: ${title}\nEtiquetas: ${tags.join(", ")}`;
                 loadDatabaseSeries();
             } catch(e) {
@@ -376,8 +375,13 @@ ${charactersHTML}
 
                 let firstFrame = sF ? `https://player.animev1.net/?v=${sF}` : (s6 ? `https://streamwish.to/e/${s6}` : (s7 ? `https://voe.sx/e/${s7}` : (sH ? `https://morencius.com/embed/${sH}` : '')));
 
+                // EPISODIO CON AVISO DE APOYO Y BANNER DE DESCARGA VIP MÁS PEQUEÑO
                 const contentHtml = `
 <div style="text-align: justify;">
+    <div style="margin: 20px 0px; text-align: center;">
+        <a class="anime-btn" href="https://millionairelucidlytransmitted.com/dwwq7qu6?key=d20b3494a8bba94805f7341046936750" rel="nofollow" target="_blank" style="background: #ff0000; border-radius: 5px; color: white !important; display: inline-block; font-weight: bold; padding: 12px 8%; text-decoration: none; text-transform: uppercase; border: 2px solid #fff;">⚠️ Apoya la web con un click ⚠️</a>
+    </div>
+
     <div class="separator" style="text-align: center;"><img src="${img}" /></div>
     <div id="box-movie">
         <div class="bixbox streaming">
@@ -390,13 +394,14 @@ ${charactersHTML}
         </div>
     </div>
     <h3 style="text-align: center; color: #ff0055; margin-top: 15px;">${seriesTitle} - Episodio ${epNum}</h3>
-    <a href="https://sub.animev1.net/" target="_blank" class="dl-banner" style="display:block; width:100%; max-width:600px; margin:30px auto; height:120px; border-radius:12px; border:4px solid #ff0055; text-decoration:none;">
-        <div class="dl-content" style="padding:20px; display:flex; align-items:center; height:100%;">
+    
+    <a href="https://sub.animev1.net/" target="_blank" class="dl-banner" style="display:block; width:100%; max-width:450px; margin:20px auto; height:70px; border-radius:8px; border:2px solid #ff0055; text-decoration:none; background:#0f172a;">
+        <div class="dl-content" style="padding:10px 15px; display:flex; align-items:center; height:100%;">
             <div class="dl-text" style="color:#fff;">
-                <span style="color:#00ffcc; font-size:10px; text-transform:uppercase;">Disponible ahora</span>
-                <b style="font-size:24px;">DESCARGAR AQUÍ</b>
+                <span style="color:#00ffcc; font-size:9px; text-transform:uppercase; letter-spacing:1px;">Acceso exclusivo</span>
+                <b style="font-size:15px; text-transform:uppercase;">DESCARGA VIP DISPONIBLE</b>
             </div>
-            <div class="dl-icon" style="margin-left:auto; background:#fff; color:#000; width:50px; height:50px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:25px;">⬇</div>
+            <div class="dl-icon" style="margin-left:auto; background:#ff0055; color:#fff; width:35px; height:35px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px;">⬇</div>
         </div>
     </a>
 </div>`;
