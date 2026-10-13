@@ -390,7 +390,7 @@ ${charactersHTML}
             const blogId = document.getElementById('blogIdEp').value.trim();
             const statusEl = document.getElementById('epStatus');
             
-            if(!aniId || !epNum || !blogId) { alert("Completa todos los campos del episodio."); btn.disabled = false; return; }
+            if(!aniId || !epNum || !blogId) { alert("Completa todos los campos obligatorios del episodio."); btn.disabled = false; return; }
             if(!googleAccessToken) { alert("Primero conéctate a la API de Blogger."); btn.disabled = false; return; }
 
             statusEl.innerText = "⏳ Obteniendo datos para el episodio...";
@@ -546,22 +546,22 @@ ${charactersHTML}
 
         <div id="tab-episodes" class="tab-pane">
             <div class="row">
+                <div><label>Blog ID de Blogger:</label><input type="text" id="blogIdEp" value="5938297539101113182"></div>
+            </div>
+            <div class="row">
                 <div><label>AniList ID (Serie):</label><input type="number" id="epAniId" placeholder="Ej: 21"></div>
                 <div><label>Nº de Episodio:</label><input type="text" id="epNum" placeholder="Ej: 01"></div>
             </div>
             <div class="row">
-                <div><label>Blog ID de Blogger:</label><input type="text" id="blogIdEp" value="5938297539101113182"></div>
                 <div><label>ID Fast / Video</label><input type="text" id="idFast" placeholder="Ej: pSYWS7BYg"></div>
-            </div>
-            <div class="row">
                 <div><label>ID Streamwish</label><input type="text" id="idWish" placeholder="Ej: pcs94xfgl99i"></div>
+            </div>
+            <div class="row">
                 <div><label>ID VOE.SX</label><input type="text" id="idVoe" placeholder="Ej: rq9mviohb2n1"></div>
-            </div>
-            <div class="row">
                 <div><label>ID Hide</label><input type="text" id="idHide" placeholder="Ej: zi8ld9k00dbb"></div>
-                <div><label>ID Upn</label><input type="text" id="idUpn" placeholder="Ej: abc123xyz"></div>
             </div>
             <div class="row">
+                <div><label>ID Upn</label><input type="text" id="idUpn" placeholder="Ej: abc123xyz"></div>
                 <div><label>ID Rpmvid</label><input type="text" id="idRpm" placeholder="Ej: rst789uvw"></div>
             </div>
             <div id="epStatus" class="status-msg">Listo para episodio...</div>
