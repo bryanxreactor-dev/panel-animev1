@@ -18,6 +18,8 @@
         button:hover { opacity: 0.9; transform: translateY(-1px); }
         button:disabled { background: #374151; cursor: not-allowed; opacity: 0.6; }
         
+        .btn-clear { background: #374151 !important; color: #f87171 !important; margin-top: 8px; }
+        
         .nav-tabs { display: flex; gap: 10px; margin-bottom: 25px; border-bottom: 1px solid #1f2937; padding-bottom: 12px; }
         .nav-tabs button { flex: 1; background: #1f2937; color: #9ca3af; margin-top: 0; }
         .nav-tabs button.active { background: var(--accent); color: #fff; }
@@ -160,6 +162,27 @@
             return cleanText;
         }
 
+        window.clearSeriesForm = function() {
+            document.getElementById('seriesAniId').value = '';
+            document.getElementById('manualStudio').value = '';
+            document.getElementById('manualTags').value = '';
+            document.getElementById('seriesResultCode').value = '';
+            document.getElementById('seriesStatus').innerText = 'Formulario de serie limpio.';
+        };
+
+        window.clearEpisodeForm = function() {
+            document.getElementById('epAniId').value = '';
+            document.getElementById('epNum').value = '';
+            document.getElementById('idFast').value = '';
+            document.getElementById('idWish').value = '';
+            document.getElementById('idVoe').value = '';
+            document.getElementById('idHide').value = '';
+            document.getElementById('idUpn').value = '';
+            document.getElementById('idRpm').value = '';
+            document.getElementById('epResultCode').value = '';
+            document.getElementById('epStatus').innerText = 'Formulario de episodio limpio.';
+        };
+
         window.generateAndSaveSeries = async function() {
             const btn = document.getElementById('btnPublishSeries');
             btn.disabled = true;
@@ -206,7 +229,6 @@
                     externalLinks = anime.externalLinks || [];
                     characters = anime.characters ? anime.characters.edges : [];
                 } else {
-                    // Consulta MyAnimeList vía Proxy CORS
                     const jikanUrl = `https://api.jikan.moe/v4/anime/${animeId}`;
                     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(jikanUrl)}`;
                     
@@ -249,7 +271,6 @@
                     tags.push(`${seasonCapitalized} ${seasonYear}`);
                 }
 
-                // Añadir etiquetas manuales si el usuario escribió alguna separada por comas
                 if (manualTagsInput) {
                     const extraTags = manualTagsInput.split(',').map(t => t.trim()).filter(t => t);
                     extraTags.forEach(t => { if(!tags.includes(t)) tags.push(t); });
@@ -390,16 +411,19 @@ ${charactersHTML}
                 const s6 = document.getElementById('idWish').value.trim();
                 const s7 = document.getElementById('idVoe').value.trim();
                 const sH = document.getElementById('idHide').value.trim();
+                const sUp = document.getElementById('idUpn').value.trim();
+                const sRpm = document.getElementById('idRpm').value.trim();
 
                 let options = '<option value="">Select Video Server</option>';
                 if(sF) options += `<option value="https://player.animev1.net/?v=${sF}">Fast ⚡</option>`;
                 if(s6) options += `<option value="https://streamwish.to/e/${s6}">Streamwish ⭐</option>`;
                 if(s7) options += `<option value="https://voe.sx/e/${s7}">VOE ⭐</option>`;
                 if(sH) options += `<option value="https://morencius.com/embed/${sH}">Hide 🔒</option>`;
+                if(sUp) options += `<option value="https://animeblix.upns.pro/#${sUp}">Upn 🚀</option>`;
+                if(sRpm) options += `<option value="https://animeblix.rpmvid.com/#${sRpm}">Rpm 🌟</option>`;
 
-                let firstFrame = sF ? `https://player.animev1.net/?v=${sF}` : (s6 ? `https://streamwish.to/e/${s6}` : (s7 ? `https://voe.sx/e/${s7}` : (sH ? `https://morencius.com/embed/${sH}` : '')));
+                let firstFrame = sF ? `https://player.animev1.net/?v=${sF}` : (s6 ? `https://streamwish.to/e/${s6}` : (s7 ? `https://voe.sx/e/${s7}` : (sH ? `https://morencius.com/embed/${sH}` : (sUp ? `https://animeblix.upns.pro/#${sUp}` : (sRpm ? `https://animeblix.rpmvid.com/#${sRpm}` : '')))));
 
-                // EPISODIO CON EFECTO GIF CAMBIO DE COLORES EN EL AVISO Y EL BANNER
                 const contentHtml = `
 <div style="text-align: justify;">
     <div style="margin: 20px 0px; text-align: center;">
@@ -516,6 +540,7 @@ ${charactersHTML}
             </div>
             <div id="seriesStatus" class="status-msg">Listo para publicar...</div>
             <button id="btnPublishSeries" onclick="generateAndSaveSeries()">🚀 Publicar Serie en Blogger & Firestore</button>
+            <button class="btn-clear" onclick="clearSeriesForm()">🧹 Limpiar Formulario</button>
             <textarea id="seriesResultCode" placeholder="Resultados..." readonly></textarea>
         </div>
 
@@ -534,17 +559,19 @@ ${charactersHTML}
             </div>
             <div class="row">
                 <div><label>ID Hide</label><input type="text" id="idHide" placeholder="Ej: zi8ld9k00dbb"></div>
+                <div><label>ID Upn</label><input type="text" id="idUpn" placeholder="Ej: abc123xyz"></div>
+            </div>
+            <div class="row">
+                <div><label>ID Rpmvid</label><input type="text" id="idRpm" placeholder="Ej: rst789uvw"></div>
             </div>
             <div id="epStatus" class="status-msg">Listo para episodio...</div>
             <button id="btnPublishEp" onclick="generateEpisodeCode()">🚀 Publicar Episodio en Blogger</button>
+            <button class="btn-clear" onclick="clearEpisodeForm()">🧹 Limpiar Formulario</button>
             <textarea id="epResultCode" placeholder="Estado del episodio..." readonly></textarea>
         </div>
 
-        <div id="tab-database" class="tab-pane">
-            <p style="font-size: 13px; color: #9ca3af; margin-bottom: 15px;">Listado de series registradas.</p>
-            <div id="dbListContainer" style="background: #030712; padding: 20px; border-radius: 8px; border: 1px solid #1f2937; min-height: 150px; text-align: center; color: #6b7280;">
-                Cargando series...
-            </div>
+        <div id="dbListContainer" class="tab-pane">
+            <!-- Pestaña Base de Datos -->
         </div>
     </div>
 
