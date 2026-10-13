@@ -20,6 +20,9 @@
         
         .btn-clear { background: #374151 !important; color: #f87171 !important; margin-top: 8px; }
         
+        .server-section { background: #030712; border: 1px solid #1f2937; border-radius: 8px; padding: 18px; margin: 20px 0; }
+        .server-section-title { color: var(--cyan); font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 8px; }
+
         .nav-tabs { display: flex; gap: 10px; margin-bottom: 25px; border-bottom: 1px solid #1f2937; padding-bottom: 12px; }
         .nav-tabs button { flex: 1; background: #1f2937; color: #9ca3af; margin-top: 0; }
         .nav-tabs button.active { background: var(--accent); color: #fff; }
@@ -552,18 +555,23 @@ ${charactersHTML}
                 <div><label>AniList ID (Serie):</label><input type="number" id="epAniId" placeholder="Ej: 21"></div>
                 <div><label>Nº de Episodio:</label><input type="text" id="epNum" placeholder="Ej: 01"></div>
             </div>
-            <div class="row">
-                <div><label>ID Fast / Video</label><input type="text" id="idFast" placeholder="Ej: pSYWS7BYg"></div>
-                <div><label>ID Streamwish</label><input type="text" id="idWish" placeholder="Ej: pcs94xfgl99i"></div>
+
+            <div class="server-section">
+                <div class="server-section-title">📺 Servidores de Video (Ingresa solo los IDs)</div>
+                <div class="row">
+                    <div><label>ID Fast / Video</label><input type="text" id="idFast" placeholder="Ej: pSYWS7BYg"></div>
+                    <div><label>ID Streamwish</label><input type="text" id="idWish" placeholder="Ej: pcs94xfgl99i"></div>
+                </div>
+                <div class="row">
+                    <div><label>ID VOE.SX</label><input type="text" id="idVoe" placeholder="Ej: rq9mviohb2n1"></div>
+                    <div><label>ID Hide</label><input type="text" id="idHide" placeholder="Ej: zi8ld9k00dbb"></div>
+                </div>
+                <div class="row">
+                    <div><label>ID Upn</label><input type="text" id="idUpn" placeholder="Ej: abc123xyz"></div>
+                    <div><label>ID Rpmvid</label><input type="text" id="idRpm" placeholder="Ej: rst789uvw"></div>
+                </div>
             </div>
-            <div class="row">
-                <div><label>ID VOE.SX</label><input type="text" id="idVoe" placeholder="Ej: rq9mviohb2n1"></div>
-                <div><label>ID Hide</label><input type="text" id="idHide" placeholder="Ej: zi8ld9k00dbb"></div>
-            </div>
-            <div class="row">
-                <div><label>ID Upn</label><input type="text" id="idUpn" placeholder="Ej: abc123xyz"></div>
-                <div><label>ID Rpmvid</label><input type="text" id="idRpm" placeholder="Ej: rst789uvw"></div>
-            </div>
+
             <div id="epStatus" class="status-msg">Listo para episodio...</div>
             <button id="btnPublishEp" onclick="generateEpisodeCode()">🚀 Publicar Episodio en Blogger</button>
             <button class="btn-clear" onclick="clearEpisodeForm()">🧹 Limpiar Formulario</button>
