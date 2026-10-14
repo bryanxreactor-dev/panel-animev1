@@ -11,14 +11,15 @@
         
         .input-group { margin-bottom: 15px; }
         label { display: block; font-size: 11px; color: var(--cyan); margin-bottom: 5px; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; }
-        input, select { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #374151; background: #030712; color: #fff; box-sizing: border-box; font-size: 14px; }
-        input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 8px rgba(255,0,85,0.3); }
+        input, select, textarea { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #374151; background: #030712; color: #fff; box-sizing: border-box; font-size: 14px; }
+        input:focus, textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 8px rgba(255,0,85,0.3); }
         
         button { background: var(--accent); color: white; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; text-transform: uppercase; width: 100%; transition: 0.3s; font-size: 13px; margin-top: 10px; }
         button:hover { opacity: 0.9; transform: translateY(-1px); }
         button:disabled { background: #374151; cursor: not-allowed; opacity: 0.6; }
         
         .btn-clear { background: #374151 !important; color: #f87171 !important; margin-top: 8px; }
+        .btn-preview { background: #2563eb !important; color: white !important; margin-bottom: 10px; }
         
         .server-section { background: #030712; border: 1px solid #1f2937; border-radius: 8px; padding: 18px; margin: 20px 0; }
         .server-section-title { color: var(--cyan); font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 8px; }
@@ -34,7 +35,9 @@
         .logout-bar { display: flex; justify-content: space-between; align-items: center; background: #030712; padding: 10px 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #1f2937; }
         .logout-btn { background: #374151; color: #f87171; width: auto; padding: 6px 15px; font-size: 11px; margin-top: 0; }
         
-        textarea { width: 100%; height: 180px; background: #030712; color: var(--cyan); border: 1px solid #374151; padding: 15px; font-family: monospace; border-radius: 8px; box-sizing: border-box; margin-top: 15px; font-size: 12px; resize: none; }
+        .preview-edit-box { background: #030712; border: 1px solid #374151; border-radius: 8px; padding: 15px; margin-top: 15px; display: none; }
+        
+        textarea#seriesResultCode, textarea#epResultCode { height: 120px; font-family: monospace; font-size: 11px; resize: none; }
         .status-msg { text-align: center; font-size: 13px; font-weight: bold; margin-top: 10px; min-height: 20px; color: #fbbf24; }
         .google-auth-box { background: #030712; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #1f2937; display: flex; justify-content: space-between; align-items: center; }
         .action-btn { background: #2563eb; padding: 5px 10px; font-size: 11px; width: auto; margin-top: 0; margin-left: 10px; }
@@ -170,6 +173,7 @@
             document.getElementById('manualStudio').value = '';
             document.getElementById('manualTags').value = '';
             document.getElementById('seriesResultCode').value = '';
+            document.getElementById('seriesEditBox').style.display = 'none';
             document.getElementById('seriesStatus').innerText = 'Formulario de serie limpio.';
         };
 
@@ -183,30 +187,24 @@
             document.getElementById('idUpn').value = '';
             document.getElementById('idRpm').value = '';
             document.getElementById('epResultCode').value = '';
+            document.getElementById('epEditBox').style.display = 'none';
             document.getElementById('epStatus').innerText = 'Formulario de episodio limpio.';
-        };
+        }
 
-        window.generateAndSaveSeries = async function() {
-            const btn = document.getElementById('btnPublishSeries');
-            btn.disabled = true;
+        // Variable global temporal para almacenar datos de serie cargados
+        let cachedSeriesData = null;
 
+        window.fetchSeriesDataForEdit = async function() {
             const source = document.getElementById('dataSource').value;
             const animeId = document.getElementById('seriesAniId').value.trim();
-            const blogId = document.getElementById('blogId').value.trim();
-            const tgUrl = document.getElementById('telegramUrl').value.trim() || "https://t.me/animev1net";
-            const manualStudio = document.getElementById('manualStudio').value.trim();
-            const manualTagsInput = document.getElementById('manualTags').value.trim();
             const statusEl = document.getElementById('seriesStatus');
-            
-            if(!animeId) { alert("Ingresa un ID válido."); btn.disabled = false; return; }
-            if(!blogId) { alert("Ingresa tu Blog ID de Blogger."); btn.disabled = false; return; }
-            if(!googleAccessToken) { alert("Primero conéctate a la API de Blogger con el botón superior."); btn.disabled = false; return; }
 
-            statusEl.innerText = `⏳ Consultando ${source === 'anilist' ? 'AniList' : 'MyAnimeList'}...`;
-
-            let title = "", description = "", status = "", format = "", genres = [], coverImg = "", nextEpNumber = 1, trailerId = "", externalLinks = [], characters = [], season = "", seasonYear = "", studio = manualStudio || "N/A";
+            if(!animeId) { alert("Ingresa un ID válido primero."); return; }
+            statusEl.innerText = `⏳ Consultando ${source === 'anilist' ? 'AniList' : 'MyAnimeList'} para edición...`;
 
             try {
+                let title = "", description = "", status = "", format = "", genres = [], coverImg = "", nextEpNumber = 1, trailerId = "", externalLinks = [], characters = [], season = "", seasonYear = "";
+
                 if (source === 'anilist') {
                     const query = `query ($id: Int) { Media (id: $id, type: ANIME) { id title { romaji english } description status format genres season seasonYear coverImage { extraLarge } trailer { id site } nextAiringEpisode { episode } externalLinks { site type } studios(isMain: true) { nodes { name } } characters (sort: ROLE, perPage: 6) { edges { node { name { full } image { medium } } voiceActors (language: JAPANESE) { name { full } } } } } }`;
                     const response = await fetch('https://graphql.anilist.co', {
@@ -215,7 +213,7 @@
                         body: JSON.stringify({ query, variables: { id: parseInt(animeId) } })
                     });
                     const resData = await response.json();
-                    if(resData.errors) { statusEl.innerText = "❌ Error: ID no encontrado en AniList."; btn.disabled = false; return; }
+                    if(resData.errors) { statusEl.innerText = "❌ Error: ID no encontrado en AniList."; return; }
                     
                     const anime = resData.data.Media;
                     title = anime.title.romaji || anime.title.english;
@@ -226,7 +224,6 @@
                     season = anime.season;
                     seasonYear = anime.seasonYear;
                     coverImg = anime.coverImage.extraLarge;
-                    if(!manualStudio && anime.studios && anime.studios.nodes.length > 0) { studio = anime.studios.nodes[0].name; }
                     if(anime.trailer && anime.trailer.site && anime.trailer.site.toLowerCase() === 'youtube') { trailerId = anime.trailer.id; }
                     if(anime.nextAiringEpisode) { nextEpNumber = anime.nextAiringEpisode.episode; }
                     externalLinks = anime.externalLinks || [];
@@ -241,7 +238,7 @@
                     const dataWrapper = await res.json();
                     const json = JSON.parse(dataWrapper.contents);
 
-                    if(!json.data) { statusEl.innerText = "❌ Error: ID no encontrado en MyAnimeList."; btn.disabled = false; return; }
+                    if(!json.data) { statusEl.innerText = "❌ Error: ID no encontrado en MyAnimeList."; return; }
                     
                     const anime = json.data;
                     title = anime.title_english || anime.title;
@@ -250,7 +247,6 @@
                     format = anime.type;
                     genres = anime.genres ? anime.genres.map(g => g.name) : [];
                     coverImg = anime.images.jpg.large_image_url;
-                    if(!manualStudio && anime.studios && anime.studios.length > 0) { studio = anime.studios[0].name; }
                     if(anime.trailer && anime.trailer.youtube_id) { trailerId = anime.trailer.youtube_id; }
                     if(anime.season && anime.year) { season = anime.season; seasonYear = anime.year; }
                 }
@@ -258,66 +254,101 @@
                 statusEl.innerText = "🌐 Traduciendo sinopsis al español...";
                 const spanishDesc = await translateToSpanish(description);
 
-                let tags = ["Series", "Sub", title];
-                if (format) tags.push(format);
-                
-                let readableStatus = status;
-                if(status === "RELEASING" || status === "Currently Airing") readableStatus = "Ongoing";
-                else if(status === "FINISHED" || status === "Finished Airing") readableStatus = "Completed";
-                else if(status === "NOT_YET_RELEASED") readableStatus = "Upcoming";
-                tags.push(readableStatus);
+                // Guardar en caché temporal para editar
+                cachedSeriesData = { title, coverImg, status, format, genres, nextEpNumber, trailerId, externalLinks, characters, season, seasonYear };
 
-                if (genres.length > 0) { genres.forEach(g => tags.push(g)); }
-                
-                if (season && seasonYear) {
-                    const seasonCapitalized = season.charAt(0) + season.slice(1).toLowerCase();
-                    tags.push(`${seasonCapitalized} ${seasonYear}`);
-                }
+                // Rellenar campos de edición
+                document.getElementById('editSeriesTitle').value = title;
+                document.getElementById('editSeriesDesc').value = spanishDesc;
+                document.getElementById('seriesEditBox').style.display = 'block';
+                statusEl.innerText = "✏️ Datos cargados. Puedes editar el título o sinopsis antes de publicar.";
+            } catch(e) {
+                statusEl.innerText = "❌ Error: " + e.message;
+            }
+        };
 
-                if (manualTagsInput) {
-                    const extraTags = manualTagsInput.split(',').map(t => t.trim()).filter(t => t);
-                    extraTags.forEach(t => { if(!tags.includes(t)) tags.push(t); });
-                }
+        window.generateAndSaveSeries = async function() {
+            const btn = document.getElementById('btnPublishSeries');
+            btn.disabled = true;
 
-                const estrenoFecha = "12 de octubre de 2026";
+            const blogId = document.getElementById('blogId').value.trim();
+            const animeId = document.getElementById('seriesAniId').value.trim();
+            const tgUrl = document.getElementById('telegramUrl').value.trim() || "https://t.me/animev1net";
+            const manualStudio = document.getElementById('manualStudio').value.trim();
+            const manualTagsInput = document.getElementById('manualTags').value.trim();
+            const statusEl = document.getElementById('seriesStatus');
 
-                let streamingHTML = '';
-                if (externalLinks.length > 0) {
-                    const streamingPlatforms = externalLinks.filter(link => 
-                        link.type === 'STREAMING' || 
-                        ['Crunchyroll', 'Netflix', 'Hulu', 'Amazon', 'Disney Plus', 'Disney+', 'Bilibili', 'HIDIVE'].includes(link.site)
-                    );
-                    if (streamingPlatforms.length > 0) {
-                        streamingHTML = '<div class="official-platforms" style="background:#0d1117; border:1px solid #21262d; border-radius:8px; padding:12px 18px; margin:15px 0;"><span style="color:#00ffcc; font-size:11px; font-weight:bold; display:block; margin-bottom:8px;">📺 PLATAFORMAS OFICIALES:</span><div style="display:flex; flex-wrap:wrap; gap:8px;">';
-                        streamingPlatforms.forEach(p => {
-                            streamingHTML += `<div style="background:#161b22; color:#e6edf3; padding:6px 12px; border-radius:4px; font-size:11px; font-weight:bold; border-left:3px solid #00ffcc;">${p.site}</div>`;
-                        });
-                        streamingHTML += '</div></div>';
-                    }
-                }
+            if(!cachedSeriesData) { alert("Primero haz clic en 'Cargar y Editar Datos' para obtener la información."); btn.disabled = false; return; }
+            if(!blogId) { alert("Ingresa tu Blog ID de Blogger."); btn.disabled = false; return; }
+            if(!googleAccessToken) { alert("Primero conéctate a la API de Blogger con el botón superior."); btn.disabled = false; return; }
 
-                let charactersHTML = '';
-                if (characters.length > 0) {
-                    charactersHTML = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 20px 0;">';
-                    characters.forEach(edge => {
-                        const charName = edge.node.name.full;
-                        const charImg = edge.node.image.medium;
-                        const vaName = (edge.voiceActors && edge.voiceActors[0]) ? edge.voiceActors[0].name.full : 'N/A';
-                        charactersHTML += `
-                        <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 5px; display: flex; align-items: center; border-left: 2px solid #ff0055;">
-                            <img src="${charImg}" style="width: 35px; height: 35px; border-radius: 50%; margin-right: 10px; object-fit: cover;">
-                            <div style="overflow: hidden;"><div style="font-size: 11px; color: #fff; font-weight:bold; overflow:hidden; text-overflow:ellipsis;">${charName}</div><div style="font-size: 9px; color: #ff0055;">${vaName}</div></div>
-                        </div>`;
+            // Tomar los valores editados por el usuario
+            const title = document.getElementById('editSeriesTitle').value.trim();
+            const spanishDesc = document.getElementById('editSeriesDesc').value.trim();
+            const { coverImg, status, format, genres, nextEpNumber, trailerId, externalLinks, characters, season, seasonYear } = cachedSeriesData;
+
+            statusEl.innerText = "🚀 Preparando etiquetas y publicando...";
+
+            let tags = ["Series", "Sub", title];
+            if (format) tags.push(format);
+            
+            let readableStatus = status;
+            if(status === "RELEASING" || status === "Currently Airing") readableStatus = "Ongoing";
+            else if(status === "FINISHED" || status === "Finished Airing") readableStatus = "Completed";
+            else if(status === "NOT_YET_RELEASED") readableStatus = "Upcoming";
+            tags.push(readableStatus);
+
+            if (genres.length > 0) { genres.forEach(g => tags.push(g)); }
+            
+            if (season && seasonYear) {
+                const seasonCapitalized = season.charAt(0) + season.slice(1).toLowerCase();
+                tags.push(`${seasonCapitalized} ${seasonYear}`);
+            }
+
+            if (manualTagsInput) {
+                const extraTags = manualTagsInput.split(',').map(t => t.trim()).filter(t => t);
+                extraTags.forEach(t => { if(!tags.includes(t)) tags.push(t); });
+            }
+
+            const estrenoFecha = "12 de octubre de 2026";
+
+            let streamingHTML = '';
+            if (externalLinks.length > 0) {
+                const streamingPlatforms = externalLinks.filter(link => 
+                    link.type === 'STREAMING' || 
+                    ['Crunchyroll', 'Netflix', 'Hulu', 'Amazon', 'Disney Plus', 'Disney+', 'Bilibili', 'HIDIVE'].includes(link.site)
+                );
+                if (streamingPlatforms.length > 0) {
+                    streamingHTML = '<div class="official-platforms" style="background:#0d1117; border:1px solid #21262d; border-radius:8px; padding:12px 18px; margin:15px 0;"><span style="color:#00ffcc; font-size:11px; font-weight:bold; display:block; margin-bottom:8px;">📺 PLATAFORMAS OFICIALES:</span><div style="display:flex; flex-wrap:wrap; gap:8px;">';
+                    streamingPlatforms.forEach(p => {
+                        streamingHTML += `<div style="background:#161b22; color:#e6edf3; padding:6px 12px; border-radius:4px; font-size:11px; font-weight:bold; border-left:3px solid #00ffcc;">${p.site}</div>`;
                     });
-                    charactersHTML += '</div>';
+                    streamingHTML += '</div></div>';
                 }
+            }
 
-                let trailerHtml = trailerId ? `
-                <div class="bixbox trailer" style="margin:20px 0; text-align:center;">
-                    <iframe width="100%" height="315" src="https://www.youtube.com/embed/${trailerId}" frameborder="0" allowfullscreen></iframe>
-                </div>` : '';
+            let charactersHTML = '';
+            if (characters.length > 0) {
+                charactersHTML = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 20px 0;">';
+                characters.forEach(edge => {
+                    const charName = edge.node.name.full;
+                    const charImg = edge.node.image.medium;
+                    const vaName = (edge.voiceActors && edge.voiceActors[0]) ? edge.voiceActors[0].name.full : 'N/A';
+                    charactersHTML += `
+                    <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 5px; display: flex; align-items: center; border-left: 2px solid #ff0055;">
+                        <img src="${charImg}" style="width: 35px; height: 35px; border-radius: 50%; margin-right: 10px; object-fit: cover;">
+                        <div style="overflow: hidden;"><div style="font-size: 11px; color: #fff; font-weight:bold; overflow:hidden; text-overflow:ellipsis;">${charName}</div><div style="font-size: 9px; color: #ff0055;">${vaName}</div></div>
+                    </div>`;
+                });
+                charactersHTML += '</div>';
+            }
 
-                const contentHtml = `
+            let trailerHtml = trailerId ? `
+            <div class="bixbox trailer" style="margin:20px 0; text-align:center;">
+                <iframe width="100%" height="315" src="https://www.youtube.com/embed/${trailerId}" frameborder="0" allowfullscreen></iframe>
+            </div>` : '';
+
+            const contentHtml = `
 <div class="separator" style="clear: both; text-align: center;"><img src="${coverImg}" /></div>
 
 <div class="sinoposis" style="color: #ccc; line-height: 1.6; text-align: justify; margin: 15px 0;"><p>${spanishDesc}</p></div>
@@ -349,21 +380,15 @@ ${charactersHTML}
     @keyframes color-gif { 0%, 100% { color: #ff0055; border-color: #ff0055; } 50% { color: #00ffcc; border-color: #00ffcc; } }
 </style>`;
 
+            try {
                 statusEl.innerText = "🚀 Publicando en Blogger...";
                 const bloggerRes = await fetch(`https://www.googleapis.com/blogger/v3/blogs/${blogId}/posts/`, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${googleAccessToken}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        title: title,
-                        content: contentHtml,
-                        labels: tags
-                    })
+                    headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: title, content: contentHtml, labels: tags })
                 });
 
-                if(!bloggerRes.ok) throw new Error("Error al publicar en Blogger. Reautoriza tu cuenta.");
+                if(!bloggerRes.ok) throw new Error("Error al publicar en Blogger.");
 
                 statusEl.innerText = "💾 Guardando en Firestore...";
                 await addDoc(collection(db, "anime_series"), {
@@ -382,21 +407,19 @@ ${charactersHTML}
             } finally {
                 btn.disabled = false;
             }
-        }
+        };
 
-        window.generateEpisodeCode = async function() {
-            const btn = document.getElementById('btnPublishEp');
-            btn.disabled = true;
+        // Caché y funciones para Episodio editable
+        let cachedEpisodeData = null;
 
+        window.fetchEpisodeDataForEdit = async function() {
             const aniId = document.getElementById('epAniId').value.trim();
             const epNum = document.getElementById('epNum').value.trim();
-            const blogId = document.getElementById('blogIdEp').value.trim();
             const statusEl = document.getElementById('epStatus');
-            
-            if(!aniId || !epNum || !blogId) { alert("Completa todos los campos obligatorios del episodio."); btn.disabled = false; return; }
-            if(!googleAccessToken) { alert("Primero conéctate a la API de Blogger."); btn.disabled = false; return; }
 
-            statusEl.innerText = "⏳ Obteniendo datos para el episodio...";
+            if(!aniId || !epNum) { alert("Ingresa el AniList ID y el Número de Episodio."); return; }
+            statusEl.innerText = "⏳ Obteniendo datos del anime para editar...";
+
             const query = `query ($id: Int) { Media (id: $id, type: ANIME) { title { romaji english } coverImage { extraLarge } } }`;
             try {
                 const response = await fetch('https://graphql.anilist.co', {
@@ -405,29 +428,55 @@ ${charactersHTML}
                     body: JSON.stringify({ query, variables: { id: parseInt(aniId) } })
                 });
                 const resData = await response.json();
+                if(resData.errors) { statusEl.innerText = "❌ Error: ID no encontrado en AniList."; return; }
+
                 const anime = resData.data.Media;
-                const seriesTitle = anime.title.romaji || anime.title.english;
-                const postTitle = `${seriesTitle} - ${epNum}`;
+                const defaultTitle = anime.title.romaji || anime.title.english;
+                const fullPostTitle = `${defaultTitle} - ${epNum}`;
                 const img = anime.coverImage.extraLarge || '';
-                
-                const sF = document.getElementById('idFast').value.trim();
-                const s6 = document.getElementById('idWish').value.trim();
-                const s7 = document.getElementById('idVoe').value.trim();
-                const sH = document.getElementById('idHide').value.trim();
-                const sUp = document.getElementById('idUpn').value.trim();
-                const sRpm = document.getElementById('idRpm').value.trim();
 
-                let options = '<option value="">Select Video Server</option>';
-                if(sF) options += `<option value="https://player.animev1.net/?v=${sF}">Fast ⚡</option>`;
-                if(s6) options += `<option value="https://streamwish.to/e/${s6}">Streamwish ⭐</option>`;
-                if(s7) options += `<option value="https://voe.sx/e/${s7}">VOE ⭐</option>`;
-                if(sH) options += `<option value="https://morencius.com/embed/${sH}">Hide 🔒</option>`;
-                if(sUp) options += `<option value="https://animeblix.upns.pro/#${sUp}">Upn 🚀</option>`;
-                if(sRpm) options += `<option value="https://animeblix.rpmvid.com/#${sRpm}">Rpm 🌟</option>`;
+                cachedEpisodeData = { img };
 
-                let firstFrame = sF ? `https://player.animev1.net/?v=${sF}` : (s6 ? `https://streamwish.to/e/${s6}` : (s7 ? `https://voe.sx/e/${s7}` : (sH ? `https://morencius.com/embed/${sH}` : (sUp ? `https://animeblix.upns.pro/#${sUp}` : (sRpm ? `https://animeblix.rpmvid.com/#${sRpm}` : '')))));
+                document.getElementById('editEpTitle').value = fullPostTitle;
+                document.getElementById('epEditBox').style.display = 'block';
+                statusEl.innerText = "✏️ Título listo para modificar. Verifica tus servidores y publica.";
+            } catch(e) {
+                statusEl.innerText = "❌ Error: " + e.message;
+            }
+        };
 
-                const contentHtml = `
+        window.generateEpisodeCode = async function() {
+            const btn = document.getElementById('btnPublishEp');
+            btn.disabled = true;
+
+            const blogId = document.getElementById('blogIdEp').value.trim();
+            const statusEl = document.getElementById('epStatus');
+
+            if(!cachedEpisodeData) { alert("Primero haz clic en 'Cargar y Editar Título' para obtener los datos del episodio."); btn.disabled = false; return; }
+            if(!blogId) { alert("Ingresa tu Blog ID de Blogger."); btn.disabled = false; return; }
+            if(!googleAccessToken) { alert("Primero conéctate a la API de Blogger."); btn.disabled = false; return; }
+
+            const postTitle = document.getElementById('editEpTitle').value.trim();
+            const img = cachedEpisodeData.img;
+
+            const sF = document.getElementById('idFast').value.trim();
+            const s6 = document.getElementById('idWish').value.trim();
+            const s7 = document.getElementById('idVoe').value.trim();
+            const sH = document.getElementById('idHide').value.trim();
+            const sUp = document.getElementById('idUpn').value.trim();
+            const sRpm = document.getElementById('idRpm').value.trim();
+
+            let options = '<option value="">Select Video Server</option>';
+            if(sF) options += `<option value="https://player.animev1.net/?v=${sF}">Fast ⚡</option>`;
+            if(s6) options += `<option value="https://streamwish.to/e/${s6}">Streamwish ⭐</option>`;
+            if(s7) options += `<option value="https://voe.sx/e/${s7}">VOE ⭐</option>`;
+            if(sH) options += `<option value="https://morencius.com/embed/${sH}">Hide 🔒</option>`;
+            if(sUp) options += `<option value="https://animeblix.upns.pro/#${sUp}">Upn 🚀</option>`;
+            if(sRpm) options += `<option value="https://animeblix.rpmvid.com/#${sRpm}">Rpm 🌟</option>`;
+
+            let firstFrame = sF ? `https://player.animev1.net/?v=${sF}` : (s6 ? `https://streamwish.to/e/${s6}` : (s7 ? `https://voe.sx/e/${s7}` : (sH ? `https://morencius.com/embed/${sH}` : (sUp ? `https://animeblix.upns.pro/#${sUp}` : (sRpm ? `https://animeblix.rpmvid.com/#${sRpm}` : '')))));
+
+            const contentHtml = `
 <div style="text-align: justify;">
     <div style="margin: 20px 0px; text-align: center;">
         <a class="anime-btn anim-gif-border" href="https://millionairelucidlytransmitted.com/dwwq7qu6?key=d20b3494a8bba94805f7341046936750" rel="nofollow" target="_blank" style="background: #111; border-radius: 5px; color: white !important; display: inline-block; font-weight: bold; padding: 12px 8%; text-decoration: none; text-transform: uppercase; border: 2px solid #ff0055;">⚠️ Apoya la web con un click ⚠️</a>
@@ -444,7 +493,7 @@ ${charactersHTML}
             </div>
         </div>
     </div>
-    <h3 style="text-align: center; color: #ff0055; margin-top: 15px;">${seriesTitle} - Episodio ${epNum}</h3>
+    <h3 style="text-align: center; color: #ff0055; margin-top: 15px;">${postTitle}</h3>
     
     <a href="https://sub.animev1.net/" target="_blank" class="dl-banner anim-gif-border" style="display:block; width:100%; max-width:450px; margin:20px auto; height:70px; border-radius:8px; border:2px solid #ff0055; text-decoration:none; background:#0f172a;">
         <div class="dl-content" style="padding:10px 15px; display:flex; align-items:center; height:100%;">
@@ -465,8 +514,9 @@ ${charactersHTML}
     .anim-gif-border { animation: color-gif 2s infinite linear; }
 </style>`;
 
-                const epTags = ["Episode", "Sub", seriesTitle];
+            const epTags = ["Episode", "Sub", postTitle.split('-')[0].trim()];
 
+            try {
                 statusEl.innerText = "🚀 Publicando Episodio en Blogger...";
                 const bloggerRes = await fetch(`https://www.googleapis.com/blogger/v3/blogs/${blogId}/posts/`, {
                     method: 'POST',
@@ -482,7 +532,7 @@ ${charactersHTML}
             } finally {
                 btn.disabled = false;
             }
-        }
+        };
     </script>
 </head>
 <body>
@@ -541,8 +591,23 @@ ${charactersHTML}
                 <div><label>Studio (Opcional manual):</label><input type="text" id="manualStudio" placeholder="Ej: Toei Animation"></div>
                 <div><label>Etiquetas Extra (Separadas por comas):</label><input type="text" id="manualTags" placeholder="Ej: Shounen, Seinen"></div>
             </div>
-            <div id="seriesStatus" class="status-msg">Listo para publicar...</div>
-            <button id="btnPublishSeries" onclick="generateAndSaveSeries()">🚀 Publicar Serie en Blogger & Firestore</button>
+
+            <button class="btn-preview" onclick="fetchSeriesDataForEdit()">🔍 1. Cargar y Editar Datos</button>
+
+            <div id="seriesEditBox" class="preview-edit-box">
+                <div style="color: var(--cyan); font-weight: bold; margin-bottom: 10px; font-size: 12px; text-transform: uppercase;">✏️ Modificar Campos Antes de Publicar</div>
+                <div class="input-group">
+                    <label>Título del Anime (Post Title):</label>
+                    <input type="text" id="editSeriesTitle">
+                </div>
+                <div class="input-group">
+                    <label>Sinopsis en Español:</label>
+                    <textarea id="editSeriesDesc" style="height: 100px;"></textarea>
+                </div>
+            </div>
+
+            <div id="seriesStatus" class="status-msg">Ingresa un ID y haz clic en Cargar para editar...</div>
+            <button id="btnPublishSeries" onclick="generateAndSaveSeries()">🚀 2. Publicar Serie en Blogger & Firestore</button>
             <button class="btn-clear" onclick="clearSeriesForm()">🧹 Limpiar Formulario</button>
             <textarea id="seriesResultCode" placeholder="Resultados..." readonly></textarea>
         </div>
@@ -554,6 +619,16 @@ ${charactersHTML}
             <div class="row">
                 <div><label>AniList ID (Serie):</label><input type="number" id="epAniId" placeholder="Ej: 21"></div>
                 <div><label>Nº de Episodio:</label><input type="text" id="epNum" placeholder="Ej: 01"></div>
+            </div>
+
+            <button class="btn-preview" onclick="fetchEpisodeDataForEdit()">🔍 1. Cargar y Editar Título</button>
+
+            <div id="epEditBox" class="preview-edit-box">
+                <div style="color: var(--cyan); font-weight: bold; margin-bottom: 10px; font-size: 12px; text-transform: uppercase;">✏️ Modificar Título del Episodio</div>
+                <div class="input-group">
+                    <label>Título del Post (Ej: One Piece - 01):</label>
+                    <input type="text" id="editEpTitle">
+                </div>
             </div>
 
             <div class="server-section">
@@ -573,7 +648,7 @@ ${charactersHTML}
             </div>
 
             <div id="epStatus" class="status-msg">Listo para episodio...</div>
-            <button id="btnPublishEp" onclick="generateEpisodeCode()">🚀 Publicar Episodio en Blogger</button>
+            <button id="btnPublishEp" onclick="generateEpisodeCode()">🚀 2. Publicar Episodio en Blogger</button>
             <button class="btn-clear" onclick="clearEpisodeForm()">🧹 Limpiar Formulario</button>
             <textarea id="epResultCode" placeholder="Estado del episodio..." readonly></textarea>
         </div>
