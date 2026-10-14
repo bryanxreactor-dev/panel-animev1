@@ -191,7 +191,6 @@
             document.getElementById('epStatus').innerText = 'Formulario de episodio limpio.';
         }
 
-        // Variable global temporal para almacenar datos de serie cargados
         let cachedSeriesData = null;
 
         window.fetchSeriesDataForEdit = async function() {
@@ -254,14 +253,13 @@
                 statusEl.innerText = "🌐 Traduciendo sinopsis al español...";
                 const spanishDesc = await translateToSpanish(description);
 
-                // Guardar en caché temporal para editar
-                cachedSeriesData = { title, coverImg, status, format, genres, nextEpNumber, trailerId, externalLinks, characters, season, seasonYear };
+                cachedSeriesData = { coverImg, status, format, genres, nextEpNumber, trailerId, externalLinks, characters, season, seasonYear };
 
-                // Rellenar campos de edición
                 document.getElementById('editSeriesTitle').value = title;
+                document.getElementById('editSeriesLabelName').value = title; // Sincronizado para etiqueta
                 document.getElementById('editSeriesDesc').value = spanishDesc;
                 document.getElementById('seriesEditBox').style.display = 'block';
-                statusEl.innerText = "✏️ Datos cargados. Puedes editar el título o sinopsis antes de publicar.";
+                statusEl.innerText = "✏️ Datos cargados. Puedes modificar el nombre para las etiquetas y el título.";
             } catch(e) {
                 statusEl.innerText = "❌ Error: " + e.message;
             }
@@ -274,7 +272,6 @@
             const blogId = document.getElementById('blogId').value.trim();
             const animeId = document.getElementById('seriesAniId').value.trim();
             const tgUrl = document.getElementById('telegramUrl').value.trim() || "https://t.me/animev1net";
-            const manualStudio = document.getElementById('manualStudio').value.trim();
             const manualTagsInput = document.getElementById('manualTags').value.trim();
             const statusEl = document.getElementById('seriesStatus');
 
@@ -282,14 +279,14 @@
             if(!blogId) { alert("Ingresa tu Blog ID de Blogger."); btn.disabled = false; return; }
             if(!googleAccessToken) { alert("Primero conéctate a la API de Blogger con el botón superior."); btn.disabled = false; return; }
 
-            // Tomar los valores editados por el usuario
             const title = document.getElementById('editSeriesTitle').value.trim();
+            const labelName = document.getElementById('editSeriesLabelName').value.trim() || title; // Nombre personalizado para etiquetas
             const spanishDesc = document.getElementById('editSeriesDesc').value.trim();
             const { coverImg, status, format, genres, nextEpNumber, trailerId, externalLinks, characters, season, seasonYear } = cachedSeriesData;
 
             statusEl.innerText = "🚀 Preparando etiquetas y publicando...";
 
-            let tags = ["Series", "Sub", title];
+            let tags = ["Series", "Sub", labelName];
             if (format) tags.push(format);
             
             let readableStatus = status;
@@ -373,7 +370,7 @@ ${trailerHtml}
 ${charactersHTML}
 
 <script type='text/javascript'>
-  var label_episode = '${title}';
+  var label_episode = '${labelName}';
 <\/script>
 
 <style>
@@ -393,7 +390,7 @@ ${charactersHTML}
                 statusEl.innerText = "💾 Guardando en Firestore...";
                 await addDoc(collection(db, "anime_series"), {
                     aniId: parseInt(animeId),
-                    title: title,
+                    title: labelName,
                     status: readableStatus,
                     tags: tags,
                     createdAt: new Date().toISOString()
@@ -409,7 +406,6 @@ ${charactersHTML}
             }
         };
 
-        // Caché y funciones para Episodio editable
         let cachedEpisodeData = null;
 
         window.fetchEpisodeDataForEdit = async function() {
@@ -432,14 +428,14 @@ ${charactersHTML}
 
                 const anime = resData.data.Media;
                 const defaultTitle = anime.title.romaji || anime.title.english;
-                const fullPostTitle = `${defaultTitle} - ${epNum}`;
                 const img = anime.coverImage.extraLarge || '';
 
                 cachedEpisodeData = { img };
 
-                document.getElementById('editEpTitle').value = fullPostTitle;
+                document.getElementById('editEpAnimeName').value = defaultTitle; // Nombre limpio para etiqueta del episodio
+                document.getElementById('editEpTitle').value = `${defaultTitle} - ${epNum}`;
                 document.getElementById('epEditBox').style.display = 'block';
-                statusEl.innerText = "✏️ Título listo para modificar. Verifica tus servidores y publica.";
+                statusEl.innerText = "✏️ Datos listos. Modifica el nombre del anime o título y publica.";
             } catch(e) {
                 statusEl.innerText = "❌ Error: " + e.message;
             }
@@ -452,11 +448,12 @@ ${charactersHTML}
             const blogId = document.getElementById('blogIdEp').value.trim();
             const statusEl = document.getElementById('epStatus');
 
-            if(!cachedEpisodeData) { alert("Primero haz clic en 'Cargar y Editar Título' para obtener los datos del episodio."); btn.disabled = false; return; }
+            if(!cachedEpisodeData) { alert("Primero haz clic en 'Cargar y Editar Título' para obtener los datos."); btn.disabled = false; return; }
             if(!blogId) { alert("Ingresa tu Blog ID de Blogger."); btn.disabled = false; return; }
             if(!googleAccessToken) { alert("Primero conéctate a la API de Blogger."); btn.disabled = false; return; }
 
             const postTitle = document.getElementById('editEpTitle').value.trim();
+            const animeTag = document.getElementById('editEpAnimeName').value.trim(); // Nombre exacto para la etiqueta
             const img = cachedEpisodeData.img;
 
             const sF = document.getElementById('idFast').value.trim();
@@ -514,7 +511,7 @@ ${charactersHTML}
     .anim-gif-border { animation: color-gif 2s infinite linear; }
 </style>`;
 
-            const epTags = ["Episode", "Sub", postTitle.split('-')[0].trim()];
+            const epTags = ["Episode", "Sub", animeTag]; // Etiqueta exacta controlada por ti
 
             try {
                 statusEl.innerText = "🚀 Publicando Episodio en Blogger...";
@@ -595,7 +592,11 @@ ${charactersHTML}
             <button class="btn-preview" onclick="fetchSeriesDataForEdit()">🔍 1. Cargar y Editar Datos</button>
 
             <div id="seriesEditBox" class="preview-edit-box">
-                <div style="color: var(--cyan); font-weight: bold; margin-bottom: 10px; font-size: 12px; text-transform: uppercase;">✏️ Modificar Campos Antes de Publicar</div>
+                <div style="color: var(--cyan); font-weight: bold; margin-bottom: 10px; font-size: 12px; text-transform: uppercase;">✏️ Modificar Nombres y Contenido Antes de Publicar</div>
+                <div class="input-group">
+                    <label>Nombre Principal para Etiquetas (Ej: One Piece):</label>
+                    <input type="text" id="editSeriesLabelName">
+                </div>
                 <div class="input-group">
                     <label>Título del Anime (Post Title):</label>
                     <input type="text" id="editSeriesTitle">
@@ -621,10 +622,14 @@ ${charactersHTML}
                 <div><label>Nº de Episodio:</label><input type="text" id="epNum" placeholder="Ej: 01"></div>
             </div>
 
-            <button class="btn-preview" onclick="fetchEpisodeDataForEdit()">🔍 1. Cargar y Editar Título</button>
+            <button class="btn-preview" onclick="fetchEpisodeDataForEdit()">🔍 1. Cargar y Editar Nombre / Título</button>
 
             <div id="epEditBox" class="preview-edit-box">
-                <div style="color: var(--cyan); font-weight: bold; margin-bottom: 10px; font-size: 12px; text-transform: uppercase;">✏️ Modificar Título del Episodio</div>
+                <div style="color: var(--cyan); font-weight: bold; margin-bottom: 10px; font-size: 12px; text-transform: uppercase;">✏️ Modificar Nombre de Etiqueta y Título del Episodio</div>
+                <div class="input-group">
+                    <label>Nombre del Anime para Etiqueta (Ej: One Piece):</label>
+                    <input type="text" id="editEpAnimeName">
+                </div>
                 <div class="input-group">
                     <label>Título del Post (Ej: One Piece - 01):</label>
                     <input type="text" id="editEpTitle">
