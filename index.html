@@ -203,12 +203,13 @@
             document.getElementById('epStatus').innerText = 'Formulario de episodio limpio.';
         }
 
+        // FUNCIÓN MEJORADA DE SUBIDA POR API
         window.subirServidorApi = async function(servidor, inputElement) {
             const file = inputElement.files[0];
             if (!file) return;
 
             const statusEl = document.getElementById('epStatus');
-            statusEl.innerText = `⏳ Subiendo video a ${servidor.toUpperCase()} por API...`;
+            statusEl.innerText = `⏳ Subiendo "${file.name}" a ${servidor.toUpperCase()}... Por favor espere.`;
 
             let formData = new FormData();
             formData.append('file', file);
@@ -229,20 +230,32 @@
                 let response = await fetch(uploadUrl, { method: 'POST', body: formData });
                 let result = await response.json();
 
-                if (result && (result.file_code || result.code)) {
-                    let code = result.file_code || result.code;
-                    
-                    if (servidor === 'streamhg') document.getElementById('idWish').value = code;
-                    if (servidor === 'voe') document.getElementById('idVoe').value = code;
-                    if (servidor === 'earnvids') document.getElementById('idHide').value = code;
+                // Soporte para distintas estructuras de respuesta de las APIs de video
+                let fileCode = "";
+                if (result.file_code) fileCode = result.file_code;
+                else if (result.code) fileCode = result.code;
+                else if (result.result && result.result.file_code) fileCode = result.result.file_code;
+                else if (result.data && result.data.file_code) fileCode = result.data.file_code;
 
-                    statusEl.innerText = `✅ ¡Subido con éxito a ${servidor.toUpperCase()}! ID rellenado automáticamente.`;
+                if (fileCode) {
+                    if (servidor === 'streamhg') {
+                        document.getElementById('idWish').value = fileCode;
+                        document.getElementById('dlStreamHG').value = `https://streamhg.to/d/${fileCode}`;
+                    } else if (servidor === 'voe') {
+                        document.getElementById('idVoe').value = fileCode;
+                        document.getElementById('dlVoe').value = `https://voe.sx/d/${fileCode}`;
+                    } else if (servidor === 'earnvids') {
+                        document.getElementById('idHide').value = fileCode;
+                        document.getElementById('dlEarnvids').value = `https://earnvids.com/d/${fileCode}`;
+                    }
+
+                    statusEl.innerText = `✅ ¡Subido con éxito a ${servidor.toUpperCase()}! Código: ${fileCode}`;
                 } else {
-                    throw new Error("Respuesta de API inválida.");
+                    throw new Error("No se encontró el código de archivo en la respuesta.");
                 }
             } catch (err) {
                 console.error(err);
-                statusEl.innerText = `❌ Error API ${servidor.toUpperCase()}. Puedes rellenar el ID manualmente.`;
+                statusEl.innerText = `❌ Error al subir a ${servidor.toUpperCase()}. Copia el ID manualmente.`;
             }
         };
 
@@ -610,7 +623,7 @@ ${charactersHTML}
 <style>
     @keyframes color-gif { 
         0%, 100% { border-color: #ff0055; color: #ff0055; box-shadow: 0 0 10px rgba(255,0,85,0.4); } 
-        50% { border-color: #00ffcc; color: #00ffcc; box-shadow: 0 0 10px rgba(0,255,204,0.6); } 
+        50% { border-color: #00ffcc; color: #00ffcc; box-shadow: 0 0 15px rgba(0,255,204,0.6); } 
     }
     .anim-gif-border { animation: color-gif 2s infinite linear; }
 </style>`;
