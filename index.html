@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel Centralizado - Anime V1</title>
     <style>
         :root { --accent: #ff0055; --bg: #0b0f19; --card: #111827; --cyan: #00ffcc; --text: #f3f4f6; }
@@ -72,6 +73,13 @@
 
         let googleAccessToken = null;
         const CLIENT_ID = "77184385205-rlatusv7sersid56ju1vr32dd4b53q1v.apps.googleusercontent.com";
+
+        const API_KEYS = {
+            streamhg: "872jn64zczcg8riexnb",
+            voe: "1FKN4ppUwrRU9fHvbMCHuyiw7LDjRqsgmpNf8cExjSyZ7ObBm08ZovolcovKijag",
+            earnvids: "32023hmoiiex67h2przpq"
+        };
+        window.API_KEYS = API_KEYS;
 
         let tokenClient;
         window.onload = function () {
@@ -186,10 +194,57 @@
             document.getElementById('idHide').value = '';
             document.getElementById('idUpn').value = '';
             document.getElementById('idRpm').value = '';
+            document.getElementById('dlStreamHG').value = '';
+            document.getElementById('dlVoe').value = '';
+            document.getElementById('dlEarnvids').value = '';
+            document.getElementById('dlVip').value = '';
             document.getElementById('epResultCode').value = '';
             document.getElementById('epEditBox').style.display = 'none';
             document.getElementById('epStatus').innerText = 'Formulario de episodio limpio.';
         }
+
+        window.subirServidorApi = async function(servidor, inputElement) {
+            const file = inputElement.files[0];
+            if (!file) return;
+
+            const statusEl = document.getElementById('epStatus');
+            statusEl.innerText = `⏳ Subiendo video a ${servidor.toUpperCase()} por API...`;
+
+            let formData = new FormData();
+            formData.append('file', file);
+
+            let uploadUrl = "";
+            if (servidor === 'streamhg') {
+                formData.append('key', API_KEYS.streamhg);
+                uploadUrl = "https://streamhg.to/api/upload/server";
+            } else if (servidor === 'voe') {
+                formData.append('key', API_KEYS.voe);
+                uploadUrl = "https://voe.sx/api/upload/server";
+            } else if (servidor === 'earnvids') {
+                formData.append('key', API_KEYS.earnvids);
+                uploadUrl = "https://earnvids.com/api/upload/server";
+            }
+
+            try {
+                let response = await fetch(uploadUrl, { method: 'POST', body: formData });
+                let result = await response.json();
+
+                if (result && (result.file_code || result.code)) {
+                    let code = result.file_code || result.code;
+                    
+                    if (servidor === 'streamhg') document.getElementById('idWish').value = code;
+                    if (servidor === 'voe') document.getElementById('idVoe').value = code;
+                    if (servidor === 'earnvids') document.getElementById('idHide').value = code;
+
+                    statusEl.innerText = `✅ ¡Subido con éxito a ${servidor.toUpperCase()}! ID rellenado automáticamente.`;
+                } else {
+                    throw new Error("Respuesta de API inválida.");
+                }
+            } catch (err) {
+                console.error(err);
+                statusEl.innerText = `❌ Error API ${servidor.toUpperCase()}. Puedes rellenar el ID manualmente.`;
+            }
+        };
 
         let cachedSeriesData = null;
 
@@ -256,7 +311,7 @@
                 cachedSeriesData = { coverImg, status, format, genres, nextEpNumber, trailerId, externalLinks, characters, season, seasonYear };
 
                 document.getElementById('editSeriesTitle').value = title;
-                document.getElementById('editSeriesLabelName').value = title; // Sincronizado para etiqueta
+                document.getElementById('editSeriesLabelName').value = title;
                 document.getElementById('editSeriesDesc').value = spanishDesc;
                 document.getElementById('seriesEditBox').style.display = 'block';
                 statusEl.innerText = "✏️ Datos cargados. Puedes modificar el nombre para las etiquetas y el título.";
@@ -280,7 +335,7 @@
             if(!googleAccessToken) { alert("Primero conéctate a la API de Blogger con el botón superior."); btn.disabled = false; return; }
 
             const title = document.getElementById('editSeriesTitle').value.trim();
-            const labelName = document.getElementById('editSeriesLabelName').value.trim() || title; // Nombre personalizado para etiquetas
+            const labelName = document.getElementById('editSeriesLabelName').value.trim() || title;
             const spanishDesc = document.getElementById('editSeriesDesc').value.trim();
             const { coverImg, status, format, genres, nextEpNumber, trailerId, externalLinks, characters, season, seasonYear } = cachedSeriesData;
 
@@ -432,7 +487,7 @@ ${charactersHTML}
 
                 cachedEpisodeData = { img };
 
-                document.getElementById('editEpAnimeName').value = defaultTitle; // Nombre limpio para etiqueta del episodio
+                document.getElementById('editEpAnimeName').value = defaultTitle;
                 document.getElementById('editEpTitle').value = `${defaultTitle} - ${epNum}`;
                 document.getElementById('epEditBox').style.display = 'block';
                 statusEl.innerText = "✏️ Datos listos. Modifica el nombre del anime o título y publica.";
@@ -453,7 +508,7 @@ ${charactersHTML}
             if(!googleAccessToken) { alert("Primero conéctate a la API de Blogger."); btn.disabled = false; return; }
 
             const postTitle = document.getElementById('editEpTitle').value.trim();
-            const animeTag = document.getElementById('editEpAnimeName').value.trim(); // Nombre exacto para la etiqueta
+            const animeTag = document.getElementById('editEpAnimeName').value.trim();
             const img = cachedEpisodeData.img;
 
             const sF = document.getElementById('idFast').value.trim();
@@ -462,6 +517,11 @@ ${charactersHTML}
             const sH = document.getElementById('idHide').value.trim();
             const sUp = document.getElementById('idUpn').value.trim();
             const sRpm = document.getElementById('idRpm').value.trim();
+
+            const dlStreamHG = document.getElementById('dlStreamHG').value.trim();
+            const dlVoe = document.getElementById('dlVoe').value.trim();
+            const dlEarnvids = document.getElementById('dlEarnvids').value.trim();
+            const dlVip = document.getElementById('dlVip').value.trim();
 
             let options = '<option value="">Select Video Server</option>';
             if(sF) options += `<option value="https://player.animev1.net/?v=${sF}">Fast ⚡</option>`;
@@ -472,6 +532,58 @@ ${charactersHTML}
             if(sRpm) options += `<option value="https://animeblix.rpmvid.com/#${sRpm}">Rpm 🌟</option>`;
 
             let firstFrame = sF ? `https://player.animev1.net/?v=${sF}` : (s6 ? `https://streamwish.to/e/${s6}` : (s7 ? `https://voe.sx/e/${s7}` : (sH ? `https://morencius.com/embed/${sH}` : (sUp ? `https://animeblix.upns.pro/#${sUp}` : (sRpm ? `https://animeblix.rpmvid.com/#${sRpm}` : '')))));
+
+            let filasDescargaHTML = "";
+            if(dlStreamHG) filasDescargaHTML += `<li><span>Stream HG</span><span style="text-align: center;">Sub</span><span><a href="${dlStreamHG}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
+            if(dlVoe) filasDescargaHTML += `<li><span>VOE</span><span style="text-align: center;">Sub</span><span><a href="${dlVoe}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
+            if(dlEarnvids) filasDescargaHTML += `<li><span>Earnvids</span><span style="text-align: center;">Sub</span><span><a href="${dlEarnvids}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
+
+            let seccionDescargaCompleta = "";
+            if (filasDescargaHTML !== "" || dlVip) {
+                seccionDescargaCompleta += `
+<style>
+  @keyframes rgbGlowText { 0% { color: #ff0055; text-shadow: 0 0 10px rgba(255,0,85,0.6); } 33% { color: #00ffcc; text-shadow: 0 0 10px rgba(0,255,204,0.6); } 66% { color: #f59e0b; text-shadow: 0 0 10px rgba(245,158,11,0.6); } 100% { color: #ff0055; text-shadow: 0 0 10px rgba(255,0,85,0.6); } }
+  .av-download-title { text-align: center !important; font-size: 1.2rem !important; font-weight: 800 !important; text-transform: uppercase !important; animation: rgbGlowText 5s infinite !important; margin: 20px 0 15px 0 !important; }
+  .dl-box-rgb { background: #0f172a; border: 2px solid rgba(0, 240, 255, 0.3); border-radius: 12px; padding: 15px; box-shadow: 0 0 20px rgba(0,240,255,0.1); margin-bottom: 20px; }
+  .dl-box-rgb ul { list-style: none; padding: 0; margin: 0; }
+  .dl-box-rgb li { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 0.9rem; color: #fff; }
+  .dl-box-rgb li.head { background: rgba(0, 240, 255, 0.1); font-weight: bold; color: #00ffcc; border-radius: 6px; border-bottom: none; }
+  .dl-box-rgb li span { flex: 1; text-align: center; }
+  .dl-box-rgb li span:first-child { text-align: left; font-weight: 600; }
+  .dl-box-rgb li span:last-child { text-align: right; }
+  .dl-box-rgb a.download-btn { background: linear-gradient(135deg, #00f0ff, #3b82f6); color: #000; padding: 6px 16px; border-radius: 6px; font-weight: bold; text-decoration: none; font-size: 0.8rem; text-transform: uppercase; transition: 0.3s; }
+  .dl-box-rgb a.download-btn:hover { box-shadow: 0 0 12px rgba(0,240,255,0.8); color: #fff; }
+  .vip-gold-box { background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%); border: 2px solid #f59e0b; border-radius: 12px; padding: 18px; text-align: center; margin-top: 15px; box-shadow: 0 0 25px rgba(245,158,11,0.25); }
+  .vip-badge { background: linear-gradient(135deg, #f59e0b, #d97706); color: #000; font-size: 0.7rem; font-weight: 900; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 1px; display: inline-block; margin-bottom: 8px; }
+  .vip-gold-btn { background: linear-gradient(135deg, #f59e0b, #b45309); color: #ffffff !important; padding: 10px 22px; border-radius: 8px; font-weight: 800; text-decoration: none; display: inline-block; font-size: 0.85rem; text-transform: uppercase; box-shadow: 0 0 15px rgba(245,158,11,0.4); margin-top: 10px; }
+</style>
+
+<h3 class="av-download-title">📥 Descargar ${postTitle}</h3>`;
+
+                if (filasDescargaHTML !== "") {
+                    seccionDescargaCompleta += `
+<div class="dl-box-rgb">
+  <ul>
+    <li class="head">
+      <span>Server</span>
+      <span style="text-align: center;">Audio</span>
+      <span style="text-align: right;">Download</span>
+    </li>
+    ${filasDescargaHTML}
+  </ul>
+</div>`;
+                }
+
+                if (dlVip) {
+                    seccionDescargaCompleta += `
+<div class="vip-gold-box">
+  <span class="vip-badge">👑 INSIGNIA VIP EXCLUSIVA</span>
+  <h4 style="color: #facc15; margin: 5px 0 8px 0; font-size: 1rem; text-transform: uppercase;">Descarga VIP Alta Velocidad</h4>
+  <p style="color: #cbd5e1; font-size: 0.82rem; margin: 0 0 12px 0;">Acceso directo al servidor premium sin publicidad ni esperas.</p>
+  <a href="${dlVip}" class="vip-gold-btn" target="_blank" rel="nofollow">🚀 Abrir Enlace VIP Dorado</a>
+</div>`;
+                }
+            }
 
             const contentHtml = `
 <div style="text-align: justify;">
@@ -492,26 +604,18 @@ ${charactersHTML}
     </div>
     <h3 style="text-align: center; color: #ff0055; margin-top: 15px;">${postTitle}</h3>
     
-    <a href="https://sub.animev1.net/" target="_blank" class="dl-banner anim-gif-border" style="display:block; width:100%; max-width:450px; margin:20px auto; height:70px; border-radius:8px; border:2px solid #ff0055; text-decoration:none; background:#0f172a;">
-        <div class="dl-content" style="padding:10px 15px; display:flex; align-items:center; height:100%;">
-            <div class="dl-text" style="color:#fff;">
-                <span style="color:#00ffcc; font-size:9px; text-transform:uppercase; letter-spacing:1px;">Acceso exclusivo</span>
-                <b style="font-size:15px; text-transform:uppercase;">DESCARGA VIP DISPONIBLE</b>
-            </div>
-            <div class="dl-icon" style="margin-left:auto; background:#ff0055; color:#fff; width:35px; height:35px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px;">⬇</div>
-        </div>
-    </a>
+    ${seccionDescargaCompleta}
 </div>
 
 <style>
     @keyframes color-gif { 
         0%, 100% { border-color: #ff0055; color: #ff0055; box-shadow: 0 0 10px rgba(255,0,85,0.4); } 
-        50% { border-color: #00ffcc; color: #00ffcc; box-shadow: 0 0 15px rgba(0,255,204,0.6); } 
+        50% { border-color: #00ffcc; color: #00ffcc; box-shadow: 0 0 10px rgba(0,255,204,0.6); } 
     }
     .anim-gif-border { animation: color-gif 2s infinite linear; }
 </style>`;
 
-            const epTags = ["Episode", "Sub", animeTag]; // Etiqueta exacta controlada por ti
+            const epTags = ["Episode", "Sub", animeTag];
 
             try {
                 statusEl.innerText = "🚀 Publicando Episodio en Blogger...";
@@ -637,18 +741,51 @@ ${charactersHTML}
             </div>
 
             <div class="server-section">
-                <div class="server-section-title">📺 Servidores de Video (Ingresa solo los IDs)</div>
+                <div class="server-section-title">📺 Servidores de Video (Automático por API o Manual)</div>
                 <div class="row">
                     <div><label>ID Fast / Video</label><input type="text" id="idFast" placeholder="Ej: pSYWS7BYg"></div>
-                    <div><label>ID Streamwish</label><input type="text" id="idWish" placeholder="Ej: pcs94xfgl99i"></div>
+                    <div>
+                        <label>ID Streamwish (API / Manual)</label>
+                        <div style="display: flex; gap: 5px;">
+                            <input type="text" id="idWish" placeholder="Ej: pcs94xfgl99i">
+                            <input type="file" id="fileStreamHG" style="display:none" onchange="subirServidorApi('streamhg', this)">
+                            <button type="button" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0 10px; font-size:10px; cursor:pointer;" onclick="document.getElementById('fileStreamHG').click()">📤 Subir</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="row">
-                    <div><label>ID VOE.SX</label><input type="text" id="idVoe" placeholder="Ej: rq9mviohb2n1"></div>
-                    <div><label>ID Hide</label><input type="text" id="idHide" placeholder="Ej: zi8ld9k00dbb"></div>
+                    <div>
+                        <label>ID VOE.SX (API / Manual)</label>
+                        <div style="display: flex; gap: 5px;">
+                            <input type="text" id="idVoe" placeholder="Ej: rq9mviohb2n1">
+                            <input type="file" id="fileVoe" style="display:none" onchange="subirServidorApi('voe', this)">
+                            <button type="button" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0 10px; font-size:10px; cursor:pointer;" onclick="document.getElementById('fileVoe').click()">📤 Subir</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label>ID Hide / Earnvids (API / Manual)</label>
+                        <div style="display: flex; gap: 5px;">
+                            <input type="text" id="idHide" placeholder="Ej: zi8ld9k00dbb">
+                            <input type="file" id="fileEarnvids" style="display:none" onchange="subirServidorApi('earnvids', this)">
+                            <button type="button" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0 10px; font-size:10px; cursor:pointer;" onclick="document.getElementById('fileEarnvids').click()">📤 Subir</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="row">
                     <div><label>ID Upn</label><input type="text" id="idUpn" placeholder="Ej: abc123xyz"></div>
                     <div><label>ID Rpmvid</label><input type="text" id="idRpm" placeholder="Ej: rst789uvw"></div>
+                </div>
+            </div>
+
+            <div class="server-section">
+                <div class="server-section-title">📥 Enlaces de Descarga Opcionales</div>
+                <div class="row">
+                    <div><label>Link Descarga Stream HG</label><input type="text" id="dlStreamHG" placeholder="https://streamhg.to/d/..."></div>
+                    <div><label>Link Descarga VOE</label><input type="text" id="dlVoe" placeholder="https://voe.sx/d/..."></div>
+                </div>
+                <div class="row">
+                    <div><label>Link Descarga Earnvids</label><input type="text" id="dlEarnvids" placeholder="https://earnvids.com/d/..."></div>
+                    <div><label>Link VIP / TeraBox 👑</label><input type="text" id="dlVip" placeholder="https://terabox.com/s/..."></div>
                 </div>
             </div>
 
