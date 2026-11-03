@@ -21,6 +21,7 @@
         
         .btn-clear { background: #374151 !important; color: #f87171 !important; margin-top: 8px; }
         .btn-preview { background: #2563eb !important; color: white !important; margin-bottom: 10px; }
+        .btn-api-sync { background: #10b981 !important; color: white !important; margin-bottom: 10px; }
         
         .server-section { background: #030712; border: 1px solid #1f2937; border-radius: 8px; padding: 18px; margin: 20px 0; }
         .server-section-title { color: var(--cyan); font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 8px; }
@@ -383,6 +384,7 @@ ${charactersHTML}
 
         let cachedEpisodeData = null;
 
+        // CONSULTA AUTOMÁTICA DE EPISODIOS EN FIREBASE Y LISTADO DE APIS (BYSE Y MIXDROP)
         window.fetchEpisodeDataForEdit = async function() {
             const aniId = document.getElementById('epAniId').value.trim();
             let epNum = document.getElementById('epNum').value.trim();
@@ -390,9 +392,10 @@ ${charactersHTML}
             const epHistoryInfo = document.getElementById('epHistoryInfo');
 
             if(!aniId) { alert("Ingresa el AniList ID de la serie."); return; }
-            statusEl.innerText = "⏳ Consultando historial de la serie en Firebase y AniList...";
+            statusEl.innerText = "⏳ Consultando bases de datos y APIs (Byse / Mixdrop)...";
 
             try {
+                // 1. Consultar Firebase Firestore para el historial de episodios
                 const epQuery = query(collection(db, "anime_episodes"), where("aniId", "==", parseInt(aniId)));
                 const epDocs = await getDocs(epQuery);
 
@@ -412,17 +415,46 @@ ${charactersHTML}
 
                 if (subidos.length > 0) {
                     epHistoryInfo.style.display = "block";
-                    epHistoryInfo.innerHTML = `📊 Episodios en base de datos: <b>[ ${subidos.join(", ")} ]</b> | Último subido: <b>EP ${maxEpFound}</b>`;
+                    epHistoryInfo.innerHTML = `📊 Episodios registrados: <b>[ ${subidos.join(", ")} ]</b> | Siguiente sugerido: <b>EP ${maxEpFound + 1}</b>`;
                     if (!epNum) {
                         epNum = (maxEpFound + 1).toString();
                         document.getElementById('epNum').value = epNum;
                     }
                 } else {
                     epHistoryInfo.style.display = "block";
-                    epHistoryInfo.innerHTML = `ℹ️ No hay episodios registrados anteriormente para esta serie.`;
+                    epHistoryInfo.innerHTML = `ℹ️ No hay episodios anteriores registrados. Se iniciará en EP 1.`;
                     if (!epNum) { epNum = "1"; document.getElementById('epNum').value = "1"; }
                 }
 
+                // 2. Intentar consultar API de Byse y Mixdrop para buscar archivos recientes que coincidan con el número o nombre
+                // Nota: Las APIs devuelven la lista de archivos subidos; intentamos encontrar el que coincida con el episodio actual.
+                const searchTarget = `ep ${epNum}`.toLowerCase();
+
+                try {
+                    // Consulta Mixdrop API listado de archivos
+                    const mdRes = await fetch(`https://mixdrop.top/api/folder/list?key=${API_KEYS.mixdrop}`);
+                    const mdData = await mdRes.json();
+                    if(mdData && mdData.result && mdData.result.files) {
+                        const matchedFile = mdData.result.files.find(f => f.title.toLowerCase().includes(searchTarget) || f.title.includes(epNum));
+                        if(matchedFile) {
+                            document.getElementById('idDrop').value = matchedFile.file_code || matchedFile.code;
+                        }
+                    }
+                } catch(err) { console.log("Mixdrop API check info:", err); }
+
+                try {
+                    // Consulta Byse API listado de archivos
+                    const byseRes = await fetch(`https://bysevepoin.com/api/file/list?key=${API_KEYS.byse}`);
+                    const byseData = await byseRes.json();
+                    if(byseData && byseData.result && byseData.result.files) {
+                        const matchedFile = byseData.result.files.find(f => f.title.toLowerCase().includes(searchTarget) || f.title.includes(epNum));
+                        if(matchedFile) {
+                            document.getElementById('idByse').value = matchedFile.file_code || matchedFile.code;
+                        }
+                    }
+                } catch(err) { console.log("Byse API check info:", err); }
+
+                // 3. Obtener título y portada desde AniList
                 const q = `query ($id: Int) { Media (id: $id, type: ANIME) { title { romaji english } coverImage { extraLarge } } }`;
                 const response = await fetch('https://graphql.anilist.co', {
                     method: 'POST',
@@ -439,9 +471,9 @@ ${charactersHTML}
                 cachedEpisodeData = { img, defaultTitle };
 
                 document.getElementById('editEpAnimeName').value = defaultTitle;
-                document.getElementById('editEpTitle').value = `${defaultTitle} - ${epNum}`;
+                document.getElementById('editEpTitle').value = `${defaultTitle} - Episode ${epNum}`;
                 document.getElementById('epEditBox').style.display = 'block';
-                statusEl.innerText = `✏️ Listo. Se sugiere el Episodio ${epNum}. Modifica si es necesario y publica.`;
+                statusEl.innerText = `✅ ¡Datos y consulta automática completados para el Episodio ${epNum}!`;
             } catch(e) {
                 statusEl.innerText = "❌ Error: " + e.message;
             }
@@ -505,7 +537,7 @@ ${charactersHTML}
             if(dlVoe) filasDescargaHTML += `<li><span>VOE</span><span style="text-align: center;">Sub</span><span><a href="${dlVoe}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
             if(dlEarnvids) filasDescargaHTML += `<li><span>Earnvids</span><span style="text-align: center;">Sub</span><span><a href="${dlEarnvids}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
             
-            // Descargas automáticas usando los IDs ingresados de Byse y Mixdrop
+            // Inclusión automática de Byse y Mixdrop en la tabla de descargas usando los IDs autocompletados
             if(sByse) {
                 let byseUrl = sByse.startsWith('http') ? sByse : `https://bysevepoin.com/e/${sByse}`;
                 filasDescargaHTML += `<li><span>Byse</span><span style="text-align: center;">Sub</span><span><a href="${byseUrl}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
@@ -718,7 +750,7 @@ ${charactersHTML}
 
             <div id="epHistoryInfo" class="history-badge" style="display: none;"></div>
 
-            <button class="btn-preview" onclick="fetchEpisodeDataForEdit()">🔍 1. Cargar y Consultar Episodios</button>
+            <button class="btn-api-sync" onclick="fetchEpisodeDataForEdit()">🔄 1. Consultar APIs y Firebase (Auto-completar IDs)</button>
 
             <div id="epEditBox" class="preview-edit-box">
                 <div class="input-group">
@@ -742,8 +774,8 @@ ${charactersHTML}
                     <div><label>ID Hide / Earnvids 🔒</label><input type="text" id="idHide" placeholder="Ej: zi8ld9k00dbb"></div>
                 </div>
                 <div class="row">
-                    <div><label>ID Byse (bysevepoin.com) 🚀</label><input type="text" id="idByse" placeholder="Ej: ID o enlace"></div>
-                    <div><label>ID Mixdrop (mixdrop.top) 💧</label><input type="text" id="idDrop" placeholder="Ej: ID o enlace"></div>
+                    <div><label>ID Byse (bysevepoin.com) 🚀</label><input type="text" id="idByse" placeholder="Auto-cargado por API"></div>
+                    <div><label>ID Mixdrop (mixdrop.top) 💧</label><input type="text" id="idDrop" placeholder="Auto-cargado por API"></div>
                 </div>
             </div>
 
