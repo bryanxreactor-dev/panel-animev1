@@ -41,7 +41,6 @@
         textarea#seriesResultCode, textarea#epResultCode { height: 120px; font-family: monospace; font-size: 11px; resize: none; }
         .status-msg { text-align: center; font-size: 13px; font-weight: bold; margin-top: 10px; min-height: 20px; color: #fbbf24; }
         .google-auth-box { background: #030712; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #1f2937; display: flex; justify-content: space-between; align-items: center; }
-        .action-btn { background: #2563eb; padding: 5px 10px; font-size: 11px; width: auto; margin-top: 0; margin-left: 10px; }
 
         .history-badge { background: #1f2937; color: #00ffcc; padding: 6px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; border: 1px solid #374151; display: inline-block; }
 
@@ -72,6 +71,12 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+
+        const API_KEYS = {
+            mixdrop: "ddZ9gM7LaOmAiA1fU",
+            byse: "84138kpekq6qrhgr0kqic"
+        };
+        window.API_KEYS = API_KEYS;
 
         let googleAccessToken = null;
         const CLIENT_ID = "77184385205-rlatusv7sersid56ju1vr32dd4b53q1v.apps.googleusercontent.com";
@@ -463,8 +468,8 @@ ${charactersHTML}
             const s6 = document.getElementById('idWish').value.trim();
             const s7 = document.getElementById('idVoe').value.trim();
             const sH = document.getElementById('idHide').value.trim();
-            const sTape = document.getElementById('idTape').value.trim();
-            const sDood = document.getElementById('idDood').value.trim();
+            const sByse = document.getElementById('idByse').value.trim();
+            const sDrop = document.getElementById('idDrop').value.trim();
 
             const dlStreamHG = document.getElementById('dlStreamHG').value.trim();
             const dlVoe = document.getElementById('dlVoe').value.trim();
@@ -476,10 +481,10 @@ ${charactersHTML}
             if(s6) serverList.push({ name: 'Streamwish ⭐', url: `https://streamwish.to/e/${s6}` });
             if(s7) serverList.push({ name: 'VOE ⭐', url: `https://voe.sx/e/${s7}` });
             if(sH) serverList.push({ name: 'Hide 🔒', url: `https://morencius.com/embed/${sH}` });
-            if(sTape) serverList.push({ name: 'Streamtape 📹', url: sTape.startsWith('http') ? sTape : `https://streamtape.com/e/${sTape}` });
-            if(sDood) serverList.push({ name: 'Doodstream 🎬', url: sDood.startsWith('http') ? sDood : `https://dood.so/e/${sDood}` });
+            if(sByse) serverList.push({ name: 'Byse 🚀', url: sByse.startsWith('http') ? sByse : `https://bysevepoin.com/e/${sByse}` });
+            if(sDrop) serverList.push({ name: 'Mixdrop 💧', url: sDrop.startsWith('http') ? sDrop : `https://mixdrop.top/e/${sDrop}` });
 
-            // Mezcla Aleatoria (Fisher-Yates)
+            // Mezcla Aleatoria (Fisher-Yates Shuffle)
             for (let i = serverList.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [serverList[i], serverList[j]] = [serverList[j], serverList[i]];
@@ -492,13 +497,23 @@ ${charactersHTML}
                 options += `<option value="${s.url}">${s.name}</option>`;
             });
 
-            // RESPALDO INTELIGENTE: Si no hay ID Fast, toma automáticamente el primer servidor de la lista aleatoria
+            // RESPALDO AUTOMÁTICO: Si ID Fast está vacío, toma el primer servidor aleatorio disponible
             let firstFrame = sF ? `https://player.animev1.net/?v=${sF}` : (serverList.length > 0 ? serverList[0].url : '');
 
             let filasDescargaHTML = "";
             if(dlStreamHG) filasDescargaHTML += `<li><span>Stream HG</span><span style="text-align: center;">Sub</span><span><a href="${dlStreamHG}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
             if(dlVoe) filasDescargaHTML += `<li><span>VOE</span><span style="text-align: center;">Sub</span><span><a href="${dlVoe}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
             if(dlEarnvids) filasDescargaHTML += `<li><span>Earnvids</span><span style="text-align: center;">Sub</span><span><a href="${dlEarnvids}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
+            
+            // Descargas automáticas usando los IDs ingresados de Byse y Mixdrop
+            if(sByse) {
+                let byseUrl = sByse.startsWith('http') ? sByse : `https://bysevepoin.com/e/${sByse}`;
+                filasDescargaHTML += `<li><span>Byse</span><span style="text-align: center;">Sub</span><span><a href="${byseUrl}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
+            }
+            if(sDrop) {
+                let dropUrl = sDrop.startsWith('http') ? sDrop : `https://mixdrop.top/e/${sDrop}`;
+                filasDescargaHTML += `<li><span>Mixdrop</span><span style="text-align: center;">Sub</span><span><a href="${dropUrl}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
+            }
 
             let seccionDescargaCompleta = "";
             if (filasDescargaHTML !== "" || dlVip) {
@@ -606,8 +621,8 @@ ${charactersHTML}
             document.getElementById('idWish').value = '';
             document.getElementById('idVoe').value = '';
             document.getElementById('idHide').value = '';
-            document.getElementById('idTape').value = '';
-            document.getElementById('idDood').value = '';
+            document.getElementById('idByse').value = '';
+            document.getElementById('idDrop').value = '';
             document.getElementById('dlStreamHG').value = '';
             document.getElementById('dlVoe').value = '';
             document.getElementById('dlEarnvids').value = '';
@@ -717,23 +732,23 @@ ${charactersHTML}
             </div>
 
             <div class="server-section">
-                <div class="server-section-title">📺 Servidores de Video (IDs)</div>
+                <div class="server-section-title">📺 Servidores de Video (Reproductor Principal + Aleatorios)</div>
                 <div class="row">
-                    <div><label>ID Fast / Video (Opcional)</label><input type="text" id="idFast" placeholder="Ej: pSYWS7BYg"></div>
-                    <div><label>ID Streamwish</label><input type="text" id="idWish" placeholder="Ej: pcs94xfgl99i"></div>
+                    <div><label>ID Fast / Video (Opcional Principal)</label><input type="text" id="idFast" placeholder="Ej: pSYWS7BYg"></div>
+                    <div><label>ID Streamwish ⭐</label><input type="text" id="idWish" placeholder="Ej: pcs94xfgl99i"></div>
                 </div>
                 <div class="row">
-                    <div><label>ID VOE.SX</label><input type="text" id="idVoe" placeholder="Ej: rq9mviohb2n1"></div>
-                    <div><label>ID Hide / Earnvids</label><input type="text" id="idHide" placeholder="Ej: zi8ld9k00dbb"></div>
+                    <div><label>ID VOE.SX ⭐</label><input type="text" id="idVoe" placeholder="Ej: rq9mviohb2n1"></div>
+                    <div><label>ID Hide / Earnvids 🔒</label><input type="text" id="idHide" placeholder="Ej: zi8ld9k00dbb"></div>
                 </div>
                 <div class="row">
-                    <div><label>ID Streamtape</label><input type="text" id="idTape" placeholder="Ej: 6J8vK..."></div>
-                    <div><label>ID Doodstream</label><input type="text" id="idDood" placeholder="Ej: pass_md5..."></div>
+                    <div><label>ID Byse (bysevepoin.com) 🚀</label><input type="text" id="idByse" placeholder="Ej: ID o enlace"></div>
+                    <div><label>ID Mixdrop (mixdrop.top) 💧</label><input type="text" id="idDrop" placeholder="Ej: ID o enlace"></div>
                 </div>
             </div>
 
             <div class="server-section">
-                <div class="server-section-title">📥 Enlaces de Descarga Opcionales</div>
+                <div class="server-section-title">📥 Enlaces de Descarga Automáticos y Opcionales</div>
                 <div class="row">
                     <div><label>Link Descarga Stream HG</label><input type="text" id="dlStreamHG" placeholder="https://streamhg.to/d/..."></div>
                     <div><label>Link Descarga VOE</label><input type="text" id="dlVoe" placeholder="https://voe.sx/d/..."></div>
