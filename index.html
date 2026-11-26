@@ -386,7 +386,8 @@ ${charactersHTML}
                 });
 
                 statusEl.innerText = "✅ ¡Serie publicada correctamente!";
-                document.getElementById('seriesResultCode').value = `Publicado: ${title}\nEtiquetas: ${tags.join(", ")}`;
+                document.getElementById('seriesResultCode').value = `Publicado: ${title}
+Etiquetas: ${tags.join(", ")}`;
                 loadDatabaseSeries();
             } catch (e) {
                 statusEl.innerText = "❌ Error: " + e.message;
@@ -457,16 +458,7 @@ ${charactersHTML}
                 document.getElementById('epNum').value = targetEpNum;
                 let cleanEpNum = targetEpNum;
 
-                try {
-                    const mdRes = await fetch(`https://mixdrop.top/api/folder/list?key=${API_KEYS.mixdrop}`);
-                    const mdData = await mdRes.json();
-                    if (mdData && mdData.result && mdData.result.files) {
-                        const matchedFile = mdData.result.files.find(f => f.title.toLowerCase().includes(cleanEpNum) || f.title.includes(cleanEpNum));
-                        if (matchedFile) {
-                            document.getElementById('idDrop').value = matchedFile.file_code || matchedFile.code;
-                        }
-                    }
-                } catch (err) { console.log("Mixdrop API error:", err); }
+                // Filemoon embed ID se ingresa manualmente (ej: https://filemoon.sx/e/...)
 
                 try {
                     const byseRes = await fetch(`https://bysevepoin.com/api/file/list?key=${API_KEYS.byse}`);
@@ -512,9 +504,9 @@ ${charactersHTML}
             const s7 = document.getElementById('idVoe').value.trim();
             const sH = document.getElementById('idHide').value.trim();
             const sByse = document.getElementById('idByse').value.trim();
-            const sDrop = document.getElementById('idDrop').value.trim();
+            const sFilemoon = document.getElementById('idFilemoon').value.trim();
 
-            const dlFree = document.getElementById('dlFree').value.trim() || "https://dl.otakuapi.de/";
+            const dlFree = document.getElementById('dlFree').value.trim() || "#";
             const dlVip = document.getElementById('dlVip').value.trim() || "https://sub.animev1.net/";
 
             let serverList = [];
@@ -522,7 +514,7 @@ ${charactersHTML}
             if (s7) serverList.push({ name: 'VOE ⭐', url: `https://voe.sx/e/${s7}` });
             if (sH) serverList.push({ name: 'Hide 🔒', url: `https://morencius.com/embed/${sH}` });
             if (sByse) serverList.push({ name: 'Byse 🚀', url: sByse.startsWith('http') ? sByse : `https://bysevepoin.com/e/${sByse}` });
-            if (sDrop) serverList.push({ name: 'Mixdrop 💧', url: sDrop.startsWith('http') ? sDrop : `https://mixdrop.top/e/${sDrop}` });
+            if (sFilemoon) serverList.push({ name: 'Filemoon 🌙', url: sFilemoon.startsWith('http') ? sFilemoon : `https://filemoon.sx/e/${sFilemoon}` });
 
             for (let i = serverList.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -541,20 +533,18 @@ ${charactersHTML}
             const seccionDescargaCompleta = `
 <style>
   @keyframes rgbGlowText { 0% { color: #ff0055; text-shadow: 0 0 10px rgba(255,0,85,0.6); } 33% { color: #00ffcc; text-shadow: 0 0 10px rgba(0,255,204,0.6); } 66% { color: #f59e0b; text-shadow: 0 0 10px rgba(245,158,11,0.6); } 100% { color: #ff0055; text-shadow: 0 0 10px rgba(255,0,85,0.6); } }
-  .av-download-title { text-align: center !important; font-size: 1.2rem !important; font-weight: 800 !important; text-transform: uppercase !important; animation: rgbGlowText 5s infinite !important; margin: 24px 0 16px 0 !important; }
-  .av-dl-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 12px; }
-  @media (max-width: 640px) { .av-dl-grid { grid-template-columns: 1fr; } }
-  .av-dl-card-free { background: linear-gradient(145deg, #0b192c 0%, #0f172a 100%); border: 2px solid rgba(0, 255, 204, 0.45); border-radius: 14px; padding: 20px; text-align: center; box-shadow: 0 0 22px rgba(0, 255, 204, 0.14); display: flex; flex-direction: column; justify-content: space-between; }
-  .av-dl-card-vip { background: linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%); border: 2px solid #f59e0b; border-radius: 14px; padding: 20px; text-align: center; box-shadow: 0 0 24px rgba(245, 158, 11, 0.24); display: flex; flex-direction: column; justify-content: space-between; }
-  .av-badge-free { background: rgba(0, 255, 204, 0.15); color: #00ffcc; border: 1px solid rgba(0, 255, 204, 0.4); font-size: 0.7rem; font-weight: 800; padding: 4px 12px; border-radius: 999px; text-transform: uppercase; letter-spacing: 1px; display: inline-block; margin: 0 auto 10px auto; }
-  .av-badge-vip { background: linear-gradient(135deg, #f59e0b, #d97706); color: #000; font-size: 0.7rem; font-weight: 900; padding: 4px 12px; border-radius: 999px; text-transform: uppercase; letter-spacing: 1px; display: inline-block; margin: 0 auto 10px auto; }
-  .av-dl-heading-free { color: #00ffcc; margin: 4px 0 8px 0; font-size: 1.05rem; font-weight: 800; text-transform: uppercase; }
-  .av-dl-heading-vip { color: #facc15; margin: 4px 0 8px 0; font-size: 1.05rem; font-weight: 800; text-transform: uppercase; }
-  .av-dl-desc { color: #cbd5e1; font-size: 0.85rem; line-height: 1.45; margin: 0 0 16px 0; }
-  .av-btn-free { background: linear-gradient(135deg, #00ffcc, #0284c7); color: #041016 !important; padding: 11px 20px; border-radius: 8px; font-weight: 800; text-decoration: none; display: inline-block; font-size: 0.85rem; text-transform: uppercase; box-shadow: 0 0 16px rgba(0, 255, 204, 0.35); transition: transform 0.2s ease, box-shadow 0.2s ease; }
-  .av-btn-free:hover { transform: translateY(-2px); box-shadow: 0 0 22px rgba(0, 255, 204, 0.65); }
-  .av-btn-vip { background: linear-gradient(135deg, #f59e0b, #b45309); color: #ffffff !important; padding: 11px 20px; border-radius: 8px; font-weight: 800; text-decoration: none; display: inline-block; font-size: 0.85rem; text-transform: uppercase; box-shadow: 0 0 16px rgba(245, 158, 11, 0.45); transition: transform 0.2s ease, box-shadow 0.2s ease; }
-  .av-btn-vip:hover { transform: translateY(-2px); box-shadow: 0 0 24px rgba(245, 158, 11, 0.75); }
+  .av-download-title { text-align: center !important; font-size: 1.05rem !important; font-weight: 800 !important; text-transform: uppercase !important; animation: rgbGlowText 5s infinite !important; margin: 20px 0 12px 0 !important; }
+  .av-dl-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 520px; margin: 10px auto 0 auto; }
+  @media (max-width: 560px) { .av-dl-grid { grid-template-columns: 1fr; max-width: 280px; } }
+  .av-dl-card-free { background: linear-gradient(145deg, #0b192c 0%, #0f172a 100%); border: 1.5px solid rgba(0, 255, 204, 0.5); border-radius: 12px; padding: 14px 12px; text-align: center; box-shadow: 0 0 16px rgba(0, 255, 204, 0.14); display: flex; flex-direction: column; justify-content: space-between; }
+  .av-dl-card-vip { background: linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%); border: 1.5px solid #f59e0b; border-radius: 12px; padding: 14px 12px; text-align: center; box-shadow: 0 0 18px rgba(245, 158, 11, 0.22); display: flex; flex-direction: column; justify-content: space-between; }
+  .av-badge-free { background: rgba(0, 255, 204, 0.15); color: #00ffcc; border: 1px solid rgba(0, 255, 204, 0.4); font-size: 0.65rem; font-weight: 800; padding: 3px 9px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.6px; display: inline-block; margin: 0 auto 6px auto; }
+  .av-badge-vip { background: linear-gradient(135deg, #f59e0b, #d97706); color: #000; font-size: 0.65rem; font-weight: 900; padding: 3px 9px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.6px; display: inline-block; margin: 0 auto 6px auto; }
+  .av-dl-desc { color: #cbd5e1; font-size: 0.78rem; line-height: 1.3; margin: 4px 0 12px 0; }
+  .av-btn-free { background: linear-gradient(135deg, #00ffcc, #0284c7); color: #041016 !important; padding: 9px 14px; border-radius: 7px; font-weight: 800; text-decoration: none; display: inline-block; font-size: 0.78rem; text-transform: uppercase; box-shadow: 0 0 12px rgba(0, 255, 204, 0.3); transition: transform 0.2s ease; }
+  .av-btn-free:hover { transform: translateY(-2px); }
+  .av-btn-vip { background: linear-gradient(135deg, #f59e0b, #b45309); color: #ffffff !important; padding: 9px 14px; border-radius: 7px; font-weight: 800; text-decoration: none; display: inline-block; font-size: 0.78rem; text-transform: uppercase; box-shadow: 0 0 12px rgba(245, 158, 11, 0.4); transition: transform 0.2s ease; }
+  .av-btn-vip:hover { transform: translateY(-2px); }
 </style>
 
 <h3 class="av-download-title">📥 Descargar ${postTitle}</h3>
@@ -562,23 +552,21 @@ ${charactersHTML}
 <div class="av-dl-grid">
   <div class="av-dl-card-free">
     <div>
-      <span class="av-badge-free">⚡ DESCARGA FREE</span>
-      <h4 class="av-dl-heading-free">Descarga Free</h4>
-      <p class="av-dl-desc">Descarga gratuita rápida desde el servidor de enlaces de Anime V1.</p>
+      <span class="av-badge-free">⚡ FREE</span>
+      <p class="av-dl-desc">Enlace gratis</p>
     </div>
     <div>
-      <a href="${dlFree}" class="av-btn-free" target="_blank" rel="nofollow">⬇️ Descarga Free</a>
+      <a href="${dlFree}" class="av-btn-free" target="_blank" rel="nofollow">⬇️ Free</a>
     </div>
   </div>
 
   <div class="av-dl-card-vip">
     <div>
-      <span class="av-badge-vip">👑 DESCARGA VIP</span>
-      <h4 class="av-dl-heading-vip">Descarga VIP</h4>
-      <p class="av-dl-desc">Acceso directo y sin esperas a carpetas y servidores VIP.</p>
+      <span class="av-badge-vip">👑 VIP</span>
+      <p class="av-dl-desc">Acceso VIP directo</p>
     </div>
     <div>
-      <a href="${dlVip}" class="av-btn-vip" target="_blank" rel="nofollow">👑 Descarga VIP</a>
+      <a href="${dlVip}" class="av-btn-vip" target="_blank" rel="nofollow">👑 VIP</a>
     </div>
   </div>
 </div>`;
@@ -635,7 +623,8 @@ ${charactersHTML}
                 });
 
                 statusEl.innerText = "✅ ¡Episodio publicado y registrado correctamente!";
-                document.getElementById('epResultCode').value = `Publicado: ${postTitle}\nEtiquetas: ${epTags.join(", ")}`;
+                document.getElementById('epResultCode').value = `Publicado: ${postTitle}
+Etiquetas: ${epTags.join(", ")}`;
                 loadDatabaseSeries();
             } catch (e) {
                 statusEl.innerText = "❌ Error: " + e.message;
@@ -652,8 +641,8 @@ ${charactersHTML}
             document.getElementById('idVoe').value = '';
             document.getElementById('idHide').value = '';
             document.getElementById('idByse').value = '';
-            document.getElementById('idDrop').value = '';
-            document.getElementById('dlFree').value = 'https://dl.otakuapi.de/';
+            document.getElementById('idFilemoon').value = '';
+            document.getElementById('dlFree').value = '';
             document.getElementById('dlVip').value = 'https://sub.animev1.net/';
             document.getElementById('epResultCode').value = '';
             document.getElementById('epEditBox').style.display = 'none';
@@ -770,15 +759,15 @@ ${charactersHTML}
                     <div><label>ID Hide / Earnvids 🔒</label><input type="text" id="idHide" placeholder="Ej: zi8ld9k00dbb"></div>
                 </div>
                 <div class="row">
-                    <div><label>ID Byse (bysevepoin.com) 🚀</label><input type="text" id="idByse" placeholder="Auto-cargado por API"></div>
-                    <div><label>ID Mixdrop (mixdrop.top) 💧</label><input type="text" id="idDrop" placeholder="Auto-cargado por API"></div>
+                    <div><label>ID Byse (bysevepoin.com) 🚀</label><input type="text" id="idByse" placeholder="Ej: abc123xyz"></div>
+                    <div><label>ID Filemoon (filemoon.sx) 🌙</label><input type="text" id="idFilemoon" placeholder="Ej: abc123xyz"></div>
                 </div>
             </div>
 
             <div class="server-section">
                 <div class="server-section-title">📥 Enlaces de Descarga (2 Columnas: Free y VIP)</div>
                 <div class="row">
-                    <div><label>Link Descarga Free ⚡</label><input type="text" id="dlFree" value="https://dl.otakuapi.de/" placeholder="https://dl.otakuapi.de/"></div>
+                    <div><label>Link Descarga Free ⚡</label><input type="text" id="dlFree" value="" placeholder="Pega enlace Free..."></div>
                     <div><label>Link Descarga VIP 👑</label><input type="text" id="dlVip" value="https://sub.animev1.net/" placeholder="https://sub.animev1.net/"></div>
                 </div>
             </div>
