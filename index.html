@@ -22,6 +22,7 @@
         .btn-clear { background: #374151 !important; color: #f87171 !important; margin-top: 8px; }
         .btn-preview { background: #2563eb !important; color: white !important; margin-bottom: 10px; }
         .btn-api-sync { background: #10b981 !important; color: white !important; margin-bottom: 10px; }
+        .action-btn { width: auto; padding: 6px 12px; font-size: 11px; margin-top: 0; background: #10b981; }
         
         .server-section { background: #030712; border: 1px solid #1f2937; border-radius: 8px; padding: 18px; margin: 20px 0; }
         .server-section-title { color: var(--cyan); font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 8px; }
@@ -84,21 +85,40 @@
 
         let tokenClient;
         window.onload = function () {
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: 'https://www.googleapis.com/auth/blogger',
-                callback: (tokenResponse) => {
-                    if (tokenResponse && tokenResponse.access_token) {
-                        googleAccessToken = tokenResponse.access_token;
-                        document.getElementById('googleAuthStatus').innerText = "🟢 Conectado a Blogger API";
-                        document.getElementById('googleAuthStatus').style.color = "#00ffcc";
-                    }
-                },
-            });
+            if (window.google && google.accounts && google.accounts.oauth2) {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID,
+                    scope: 'https://www.googleapis.com/auth/blogger',
+                    callback: (tokenResponse) => {
+                        if (tokenResponse && tokenResponse.access_token) {
+                            googleAccessToken = tokenResponse.access_token;
+                            document.getElementById('googleAuthStatus').innerText = "🟢 Conectado a Blogger API";
+                            document.getElementById('googleAuthStatus').style.color = "#00ffcc";
+                        }
+                    },
+                });
+            }
         };
 
         window.connectBlogger = function() {
-            if(tokenClient) { tokenClient.requestAccessToken(); }
+            if (!tokenClient && window.google && google.accounts && google.accounts.oauth2) {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID,
+                    scope: 'https://www.googleapis.com/auth/blogger',
+                    callback: (tokenResponse) => {
+                        if (tokenResponse && tokenResponse.access_token) {
+                            googleAccessToken = tokenResponse.access_token;
+                            document.getElementById('googleAuthStatus').innerText = "🟢 Conectado a Blogger API";
+                            document.getElementById('googleAuthStatus').style.color = "#00ffcc";
+                        }
+                    },
+                });
+            }
+            if (tokenClient) {
+                tokenClient.requestAccessToken();
+            } else {
+                alert("Aún se está cargando Google Identity Services. Intenta de nuevo en un segundo.");
+            }
         };
 
         onAuthStateChanged(auth, (user) => {
@@ -124,10 +144,11 @@
 
         async function loadDatabaseSeries() {
             const container = document.getElementById('dbListContainer');
+            if (!container) return;
             container.innerHTML = "Cargando series desde Firestore...";
             try {
                 const querySnapshot = await getDocs(collection(db, "anime_series"));
-                if(querySnapshot.empty) {
+                if (querySnapshot.empty) {
                     container.innerHTML = "No hay series registradas en la base de datos todavía.";
                     return;
                 }
@@ -135,7 +156,7 @@
                 querySnapshot.forEach((docSnap) => {
                     const data = docSnap.data();
                     const docId = docSnap.id;
-                    html += `<li style="background:#111827; padding:12px; margin-bottom:8px; border-radius:5px; border-left:3px solid #ff0055; display:flex; justify-content:space-between; align-items:center;">
+                    html += `<li style="background:#030712; padding:12px; margin-bottom:8px; border-radius:5px; border:1px solid #1f2937; border-left:3px solid #ff0055; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
                         <div>
                             <b>ID AniList:</b> ${data.aniId} | <b>Título:</b> ${data.title} | <b>Estado:</b> <span style="color:#00ffcc;">${data.status}</span>
                         </div>
@@ -146,7 +167,7 @@
                 });
                 html += "</ul>";
                 container.innerHTML = html;
-            } catch(e) {
+            } catch (e) {
                 container.innerHTML = "Error al cargar la base de datos: " + e.message;
             }
         }
@@ -157,10 +178,10 @@
                 await updateDoc(seriesRef, { status: "Completed" });
                 alert("¡Estado actualizado a Completed en Firestore!");
                 loadDatabaseSeries();
-            } catch(e) {
+            } catch (e) {
                 alert("Error al actualizar estado: " + e.message);
             }
-        }
+        };
 
         async function translateToSpanish(text) {
             if (!text) return "Sin sinopsis disponible.";
@@ -184,7 +205,7 @@
             const animeId = document.getElementById('seriesAniId').value.trim();
             const statusEl = document.getElementById('seriesStatus');
 
-            if(!animeId) { alert("Ingresa un ID válido primero."); return; }
+            if (!animeId) { alert("Ingresa un ID válido primero."); return; }
             statusEl.innerText = `⏳ Consultando ${source === 'anilist' ? 'AniList' : 'MyAnimeList'} para edición...`;
 
             try {
@@ -198,7 +219,7 @@
                         body: JSON.stringify({ query, variables: { id: parseInt(animeId) } })
                     });
                     const resData = await response.json();
-                    if(resData.errors) { statusEl.innerText = "❌ Error: ID no encontrado en AniList."; return; }
+                    if (resData.errors) { statusEl.innerText = "❌ Error: ID no encontrado en AniList."; return; }
                     
                     const anime = resData.data.Media;
                     title = anime.title.romaji || anime.title.english;
@@ -209,8 +230,8 @@
                     season = anime.season;
                     seasonYear = anime.seasonYear;
                     coverImg = anime.coverImage.extraLarge;
-                    if(anime.trailer && anime.trailer.site && anime.trailer.site.toLowerCase() === 'youtube') { trailerId = anime.trailer.id; }
-                    if(anime.nextAiringEpisode) { nextEpNumber = anime.nextAiringEpisode.episode; }
+                    if (anime.trailer && anime.trailer.site && anime.trailer.site.toLowerCase() === 'youtube') { trailerId = anime.trailer.id; }
+                    if (anime.nextAiringEpisode) { nextEpNumber = anime.nextAiringEpisode.episode; }
                     externalLinks = anime.externalLinks || [];
                     characters = anime.characters ? anime.characters.edges : [];
                 } else {
@@ -218,12 +239,12 @@
                     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(jikanUrl)}`;
                     
                     const res = await fetch(proxyUrl);
-                    if(!res.ok) throw new Error("No se pudo conectar con MyAnimeList.");
+                    if (!res.ok) throw new Error("No se pudo conectar con MyAnimeList.");
                     
                     const dataWrapper = await res.json();
                     const json = JSON.parse(dataWrapper.contents);
 
-                    if(!json.data) { statusEl.innerText = "❌ Error: ID no encontrado en MyAnimeList."; return; }
+                    if (!json.data) { statusEl.innerText = "❌ Error: ID no encontrado en MyAnimeList."; return; }
                     
                     const anime = json.data;
                     title = anime.title_english || anime.title;
@@ -232,8 +253,8 @@
                     format = anime.type;
                     genres = anime.genres ? anime.genres.map(g => g.name) : [];
                     coverImg = anime.images.jpg.large_image_url;
-                    if(anime.trailer && anime.trailer.youtube_id) { trailerId = anime.trailer.youtube_id; }
-                    if(anime.season && anime.year) { season = anime.season; seasonYear = anime.year; }
+                    if (anime.trailer && anime.trailer.youtube_id) { trailerId = anime.trailer.youtube_id; }
+                    if (anime.season && anime.year) { season = anime.season; seasonYear = anime.year; }
                 }
 
                 statusEl.innerText = "🌐 Traduciendo sinopsis al español...";
@@ -246,7 +267,7 @@
                 document.getElementById('editSeriesDesc').value = spanishDesc;
                 document.getElementById('seriesEditBox').style.display = 'block';
                 statusEl.innerText = "✏️ Datos cargados. Puedes modificar el nombre para las etiquetas y el título.";
-            } catch(e) {
+            } catch (e) {
                 statusEl.innerText = "❌ Error: " + e.message;
             }
         };
@@ -260,9 +281,9 @@
             const tgUrl = document.getElementById('telegramUrl').value.trim() || "https://t.me/animev1net";
             const statusEl = document.getElementById('seriesStatus');
 
-            if(!cachedSeriesData) { alert("Primero haz clic en 'Cargar y Editar Datos' para obtener la información."); btn.disabled = false; return; }
-            if(!blogId) { alert("Ingresa tu Blog ID de Blogger."); btn.disabled = false; return; }
-            if(!googleAccessToken) { alert("Primero conéctate a la API de Blogger con el botón superior."); btn.disabled = false; return; }
+            if (!cachedSeriesData) { alert("Primero haz clic en 'Cargar y Editar Serie' para obtener la información."); btn.disabled = false; return; }
+            if (!blogId) { alert("Ingresa tu Blog ID de Blogger."); btn.disabled = false; return; }
+            if (!googleAccessToken) { alert("Primero conéctate a la API de Blogger con el botón superior."); btn.disabled = false; return; }
 
             const title = document.getElementById('editSeriesTitle').value.trim();
             const labelName = document.getElementById('editSeriesLabelName').value.trim() || title;
@@ -275,9 +296,9 @@
             if (format) tags.push(format);
             
             let readableStatus = status;
-            if(status === "RELEASING" || status === "Currently Airing") readableStatus = "Ongoing";
-            else if(status === "FINISHED" || status === "Finished Airing") readableStatus = "Completed";
-            else if(status === "NOT_YET_RELEASED") readableStatus = "Upcoming";
+            if (status === "RELEASING" || status === "Currently Airing") readableStatus = "Ongoing";
+            else if (status === "FINISHED" || status === "Finished Airing") readableStatus = "Completed";
+            else if (status === "NOT_YET_RELEASED") readableStatus = "Upcoming";
             tags.push(readableStatus);
 
             if (genres.length > 0) { genres.forEach(g => tags.push(g)); }
@@ -361,7 +382,7 @@ ${charactersHTML}
                     body: JSON.stringify({ title: title, content: contentHtml, labels: tags })
                 });
 
-                if(!bloggerRes.ok) throw new Error("Error al publicar en Blogger.");
+                if (!bloggerRes.ok) throw new Error("Error al publicar en Blogger.");
 
                 statusEl.innerText = "💾 Guardando en Firestore...";
                 await addDoc(collection(db, "anime_series"), {
@@ -375,7 +396,7 @@ ${charactersHTML}
                 statusEl.innerText = "✅ ¡Serie publicada correctamente!";
                 document.getElementById('seriesResultCode').value = `Publicado: ${title}\nEtiquetas: ${tags.join(", ")}`;
                 loadDatabaseSeries();
-            } catch(e) {
+            } catch (e) {
                 statusEl.innerText = "❌ Error: " + e.message;
             } finally {
                 btn.disabled = false;
@@ -390,7 +411,7 @@ ${charactersHTML}
             const statusEl = document.getElementById('epStatus');
             const epHistoryInfo = document.getElementById('epHistoryInfo');
 
-            if(!aniId) { alert("Ingresa el AniList ID de la serie."); return; }
+            if (!aniId) { alert("Ingresa el AniList ID de la serie."); return; }
             statusEl.innerText = "⏳ Consultando bases de datos y APIs (Byse / Mixdrop)...";
 
             try {
@@ -403,13 +424,13 @@ ${charactersHTML}
                 epDocs.forEach(d => {
                     let data = d.data();
                     let epVal = parseInt(data.epNum);
-                    if(!isNaN(epVal)) {
+                    if (!isNaN(epVal)) {
                         subidos.push(epVal);
-                        if(epVal > maxEpFound) maxEpFound = epVal;
+                        if (epVal > maxEpFound) maxEpFound = epVal;
                     }
                 });
 
-                subidos.sort((a,b) => a - b);
+                subidos.sort((a, b) => a - b);
 
                 if (subidos.length > 0) {
                     epHistoryInfo.style.display = "block";
@@ -429,24 +450,24 @@ ${charactersHTML}
                 try {
                     const mdRes = await fetch(`https://mixdrop.top/api/folder/list?key=${API_KEYS.mixdrop}`);
                     const mdData = await mdRes.json();
-                    if(mdData && mdData.result && mdData.result.files) {
+                    if (mdData && mdData.result && mdData.result.files) {
                         const matchedFile = mdData.result.files.find(f => f.title.toLowerCase().includes(cleanEpNum) || f.title.includes(cleanEpNum));
-                        if(matchedFile) {
+                        if (matchedFile) {
                             document.getElementById('idDrop').value = matchedFile.file_code || matchedFile.code;
                         }
                     }
-                } catch(err) { console.log("Mixdrop API error:", err); }
+                } catch (err) { console.log("Mixdrop API error:", err); }
 
                 try {
                     const byseRes = await fetch(`https://bysevepoin.com/api/file/list?key=${API_KEYS.byse}`);
                     const byseData = await byseRes.json();
-                    if(byseData && byseData.result && byseData.result.files) {
+                    if (byseData && byseData.result && byseData.result.files) {
                         const matchedFile = byseData.result.files.find(f => f.title.toLowerCase().includes(cleanEpNum) || f.title.includes(cleanEpNum));
-                        if(matchedFile) {
+                        if (matchedFile) {
                             document.getElementById('idByse').value = matchedFile.file_code || matchedFile.code;
                         }
                     }
-                } catch(err) { console.log("Byse API error:", err); }
+                } catch (err) { console.log("Byse API error:", err); }
 
                 const q = `query ($id: Int) { Media (id: $id, type: ANIME) { title { romaji english } coverImage { extraLarge } } }`;
                 const response = await fetch('https://graphql.anilist.co', {
@@ -455,7 +476,7 @@ ${charactersHTML}
                     body: JSON.stringify({ query: q, variables: { id: parseInt(aniId) } })
                 });
                 const resData = await response.json();
-                if(resData.errors) { statusEl.innerText = "❌ Error: ID de Serie no encontrado en AniList."; return; }
+                if (resData.errors) { statusEl.innerText = "❌ Error: ID de Serie no encontrado en AniList."; return; }
 
                 const anime = resData.data.Media;
                 const defaultTitle = anime.title.romaji || anime.title.english;
@@ -467,7 +488,7 @@ ${charactersHTML}
                 document.getElementById('editEpTitle').value = `${defaultTitle} - Episode ${cleanEpNum}`;
                 document.getElementById('epEditBox').style.display = 'block';
                 statusEl.innerText = `✅ ¡Datos y consulta automática completados para el Episodio ${cleanEpNum}!`;
-            } catch(e) {
+            } catch (e) {
                 statusEl.innerText = "❌ Error: " + e.message;
             }
         };
@@ -481,9 +502,9 @@ ${charactersHTML}
             const epNum = document.getElementById('epNum').value.trim();
             const statusEl = document.getElementById('epStatus');
 
-            if(!cachedEpisodeData) { alert("Primero haz clic en 'Cargar y Consultar Episodios' para obtener los datos."); btn.disabled = false; return; }
-            if(!blogId) { alert("Ingresa tu Blog ID de Blogger."); btn.disabled = false; return; }
-            if(!googleAccessToken) { alert("Primero conéctate a la API de Blogger."); btn.disabled = false; return; }
+            if (!cachedEpisodeData) { alert("Primero haz clic en '1. Consultar APIs y Firebase' para obtener los datos."); btn.disabled = false; return; }
+            if (!blogId) { alert("Ingresa tu Blog ID de Blogger."); btn.disabled = false; return; }
+            if (!googleAccessToken) { alert("Primero conéctate a la API de Blogger."); btn.disabled = false; return; }
 
             const postTitle = document.getElementById('editEpTitle').value.trim();
             const animeTag = document.getElementById('editEpAnimeName').value.trim();
@@ -502,11 +523,11 @@ ${charactersHTML}
             const dlVip = document.getElementById('dlVip').value.trim();
 
             let serverList = [];
-            if(s6) serverList.push({ name: 'Streamwish ⭐', url: `https://streamwish.to/e/${s6}` });
-            if(s7) serverList.push({ name: 'VOE ⭐', url: `https://voe.sx/e/${s7}` });
-            if(sH) serverList.push({ name: 'Hide 🔒', url: `https://morencius.com/embed/${sH}` });
-            if(sByse) serverList.push({ name: 'Byse 🚀', url: sByse.startsWith('http') ? sByse : `https://bysevepoin.com/e/${sByse}` });
-            if(sDrop) serverList.push({ name: 'Mixdrop 💧', url: sDrop.startsWith('http') ? sDrop : `https://mixdrop.top/e/${sDrop}` });
+            if (s6) serverList.push({ name: 'Streamwish ⭐', url: `https://streamwish.to/e/${s6}` });
+            if (s7) serverList.push({ name: 'VOE ⭐', url: `https://voe.sx/e/${s7}` });
+            if (sH) serverList.push({ name: 'Hide 🔒', url: `https://morencius.com/embed/${sH}` });
+            if (sByse) serverList.push({ name: 'Byse 🚀', url: sByse.startsWith('http') ? sByse : `https://bysevepoin.com/e/${sByse}` });
+            if (sDrop) serverList.push({ name: 'Mixdrop 💧', url: sDrop.startsWith('http') ? sDrop : `https://mixdrop.top/e/${sDrop}` });
 
             for (let i = serverList.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -514,7 +535,7 @@ ${charactersHTML}
             }
 
             let options = '<option value="">Select Video Server</option>';
-            if(sF) options += `<option value="https://player.animev1.net/?v=${sF}">Fast ⚡</option>`;
+            if (sF) options += `<option value="https://player.animev1.net/?v=${sF}">Fast ⚡</option>`;
 
             serverList.forEach(s => {
                 options += `<option value="${s.url}">${s.name}</option>`;
@@ -523,15 +544,15 @@ ${charactersHTML}
             let firstFrame = sF ? `https://player.animev1.net/?v=${sF}` : (serverList.length > 0 ? serverList[0].url : '');
 
             let filasDescargaHTML = "";
-            if(dlStreamHG) filasDescargaHTML += `<li><span>Stream HG</span><span style="text-align: center;">Sub</span><span><a href="${dlStreamHG}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
-            if(dlVoe) filasDescargaHTML += `<li><span>VOE</span><span style="text-align: center;">Sub</span><span><a href="${dlVoe}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
-            if(dlEarnvids) filasDescargaHTML += `<li><span>Earnvids</span><span style="text-align: center;">Sub</span><span><a href="${dlEarnvids}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
+            if (dlStreamHG) filasDescargaHTML += `<li><span>Stream HG</span><span style="text-align: center;">Sub</span><span><a href="${dlStreamHG}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
+            if (dlVoe) filasDescargaHTML += `<li><span>VOE</span><span style="text-align: center;">Sub</span><span><a href="${dlVoe}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
+            if (dlEarnvids) filasDescargaHTML += `<li><span>Earnvids</span><span style="text-align: center;">Sub</span><span><a href="${dlEarnvids}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
             
-            if(sByse) {
+            if (sByse) {
                 let byseUrl = sByse.startsWith('http') ? sByse : `https://bysevepoin.com/e/${sByse}`;
                 filasDescargaHTML += `<li><span>Byse</span><span style="text-align: center;">Sub</span><span><a href="${byseUrl}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
             }
-            if(sDrop) {
+            if (sDrop) {
                 let dropUrl = sDrop.startsWith('http') ? sDrop : `https://mixdrop.top/e/${sDrop}`;
                 filasDescargaHTML += `<li><span>Mixdrop</span><span style="text-align: center;">Sub</span><span><a href="${dropUrl}" class="download-btn" rel="nofollow" target="_blank">Download</a></span></li>`;
             }
@@ -602,7 +623,16 @@ ${charactersHTML}
     <h3 style="text-align: center; color: #ff0055; margin-top: 15px;">${postTitle}</h3>
     
     ${seccionDescargaCompleta}
-</div>`;
+</div>
+
+<script type='text/javascript'>
+  function loadMi(sel) {
+    var content = document.getElementById('content');
+    if (content && sel && sel.value) {
+      content.innerHTML = '<iframe allowfullscreen="yes" frameborder="0" height="100%" src="' + sel.value + '" width="100%"></iframe>';
+    }
+  }
+<\/script>`;
 
             const epTags = ["Episode", "Sub", animeTag];
 
@@ -614,7 +644,7 @@ ${charactersHTML}
                     body: JSON.stringify({ title: postTitle, content: contentHtml, labels: epTags })
                 });
 
-                if(!bloggerRes.ok) throw new Error("Error al publicar episodio en Blogger.");
+                if (!bloggerRes.ok) throw new Error("Error al publicar episodio en Blogger.");
 
                 statusEl.innerText = "💾 Guardando registro de episodio en Firebase...";
                 await addDoc(collection(db, "anime_episodes"), {
@@ -627,7 +657,7 @@ ${charactersHTML}
                 statusEl.innerText = "✅ ¡Episodio publicado y registrado correctamente!";
                 document.getElementById('epResultCode').value = `Publicado: ${postTitle}\nEtiquetas: ${epTags.join(", ")}`;
                 loadDatabaseSeries();
-            } catch(e) {
+            } catch (e) {
                 statusEl.innerText = "❌ Error: " + e.message;
             } finally {
                 btn.disabled = false;
@@ -785,8 +815,11 @@ ${charactersHTML}
             <textarea id="epResultCode" placeholder="Estado del episodio..." readonly></textarea>
         </div>
 
-        <div id="dbListContainer" class="tab-pane">
-            <!-- Pestaña Base de Datos -->
+        <div id="tab-database" class="tab-pane">
+            <div class="server-section">
+                <div class="server-section-title">🗄️ Series Registradas en Firestore</div>
+                <div id="dbListContainer">Cargando series desde Firestore...</div>
+            </div>
         </div>
     </div>
 
@@ -794,8 +827,9 @@ ${charactersHTML}
         function switchTab(tabName, event) {
             document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-tabs button').forEach(el => el.classList.remove('active'));
-            document.getElementById('tab-' + tabName).classList.add('active');
-            event.currentTarget.classList.add('active');
+            const targetPane = document.getElementById('tab-' + tabName);
+            if (targetPane) targetPane.classList.add('active');
+            if (event && event.currentTarget) event.currentTarget.classList.add('active');
         }
     </script>
 </body>
