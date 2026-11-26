@@ -533,9 +533,16 @@ Etiquetas: ${tags.join(", ")}`;
             const seccionDescargaCompleta = `
 <style>
   @keyframes rgbGlowText { 0% { color: #ff0055; text-shadow: 0 0 10px rgba(255,0,85,0.6); } 33% { color: #00ffcc; text-shadow: 0 0 10px rgba(0,255,204,0.6); } 66% { color: #f59e0b; text-shadow: 0 0 10px rgba(245,158,11,0.6); } 100% { color: #ff0055; text-shadow: 0 0 10px rgba(255,0,85,0.6); } }
-  .av-download-title { text-align: center !important; font-size: 1.05rem !important; font-weight: 800 !important; text-transform: uppercase !important; animation: rgbGlowText 5s infinite !important; margin: 20px 0 12px 0 !important; }
-  .av-dl-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 520px; margin: 10px auto 0 auto; }
-  @media (max-width: 560px) { .av-dl-grid { grid-template-columns: 1fr; max-width: 280px; } }
+  .av-dl-toggle-wrap { text-align: center; margin: 22px 0 8px 0; }
+  .av-dl-toggle-btn { background: linear-gradient(135deg, #111827, #1f2937); border: 1.5px solid #ff0055; color: #fff; padding: 10px 22px; border-radius: 999px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.8px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 0 14px rgba(255, 0, 85, 0.28); transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
+  .av-dl-toggle-btn:hover { transform: translateY(-2px); border-color: #00ffcc; box-shadow: 0 0 18px rgba(0, 255, 204, 0.35); }
+  .av-dl-toggle-arrow { display: inline-block; transition: transform 0.25s ease; font-size: 0.75rem; }
+  .av-dl-collapse { display: none; animation: avFadeDown 0.22s ease; }
+  .av-dl-collapse.open { display: block; }
+  @keyframes avFadeDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+  .av-download-title { text-align: center !important; font-size: 1rem !important; font-weight: 800 !important; text-transform: uppercase !important; animation: rgbGlowText 5s infinite !important; margin: 14px 0 10px 0 !important; }
+  .av-dl-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 500px; margin: 8px auto 0 auto; }
+  @media (max-width: 560px) { .av-dl-grid { grid-template-columns: 1fr; max-width: 260px; } }
   .av-dl-card-free { background: linear-gradient(145deg, #0b192c 0%, #0f172a 100%); border: 1.5px solid rgba(0, 255, 204, 0.5); border-radius: 12px; padding: 14px 12px; text-align: center; box-shadow: 0 0 16px rgba(0, 255, 204, 0.14); display: flex; flex-direction: column; justify-content: space-between; }
   .av-dl-card-vip { background: linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%); border: 1.5px solid #f59e0b; border-radius: 12px; padding: 14px 12px; text-align: center; box-shadow: 0 0 18px rgba(245, 158, 11, 0.22); display: flex; flex-direction: column; justify-content: space-between; }
   .av-badge-free { background: rgba(0, 255, 204, 0.15); color: #00ffcc; border: 1px solid rgba(0, 255, 204, 0.4); font-size: 0.65rem; font-weight: 800; padding: 3px 9px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.6px; display: inline-block; margin: 0 auto 6px auto; }
@@ -547,29 +554,48 @@ Etiquetas: ${tags.join(", ")}`;
   .av-btn-vip:hover { transform: translateY(-2px); }
 </style>
 
-<h3 class="av-download-title">📥 Descargar ${postTitle}</h3>
+<div class="av-dl-toggle-wrap">
+  <button type="button" class="av-dl-toggle-btn" onclick="toggleAvDownloads(this)">
+    <span>📥 Ver Descargas</span>
+    <span class="av-dl-toggle-arrow">▼</span>
+  </button>
+</div>
 
-<div class="av-dl-grid">
-  <div class="av-dl-card-free">
-    <div>
-      <span class="av-badge-free">⚡ FREE</span>
-      <p class="av-dl-desc">Enlace gratis</p>
+<div class="av-dl-collapse" id="avDownloadBox">
+  <h3 class="av-download-title">Descargar ${postTitle}</h3>
+
+  <div class="av-dl-grid">
+    <div class="av-dl-card-free">
+      <div>
+        <span class="av-badge-free">⚡ FREE</span>
+        <p class="av-dl-desc">Enlace gratis</p>
+      </div>
+      <div>
+        <a href="${dlFree}" class="av-btn-free" target="_blank" rel="nofollow">⬇️ Free</a>
+      </div>
     </div>
-    <div>
-      <a href="${dlFree}" class="av-btn-free" target="_blank" rel="nofollow">⬇️ Free</a>
+
+    <div class="av-dl-card-vip">
+      <div>
+        <span class="av-badge-vip">👑 VIP</span>
+        <p class="av-dl-desc">Acceso VIP directo</p>
+      </div>
+      <div>
+        <a href="${dlVip}" class="av-btn-vip" target="_blank" rel="nofollow">👑 VIP</a>
+      </div>
     </div>
   </div>
+</div>
 
-  <div class="av-dl-card-vip">
-    <div>
-      <span class="av-badge-vip">👑 VIP</span>
-      <p class="av-dl-desc">Acceso VIP directo</p>
-    </div>
-    <div>
-      <a href="${dlVip}" class="av-btn-vip" target="_blank" rel="nofollow">👑 VIP</a>
-    </div>
-  </div>
-</div>`;
+<script type="text/javascript">
+  function toggleAvDownloads(btn) {
+    var box = document.getElementById('avDownloadBox');
+    if (!box) return;
+    var isOpen = box.classList.toggle('open');
+    var arrow = btn ? btn.querySelector('.av-dl-toggle-arrow') : null;
+    if (arrow) arrow.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+  }
+<\/script>`;
 
             const contentHtml = `
 <div style="text-align: justify;">
