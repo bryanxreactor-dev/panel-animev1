@@ -514,7 +514,10 @@ Etiquetas: ${tags.join(", ")}`;
             if (s7) serverList.push({ name: 'VOE ⭐', url: `https://voe.sx/e/${s7}` });
             if (sH) serverList.push({ name: 'Hide 🔒', url: `https://morencius.com/embed/${sH}` });
             if (sByse) serverList.push({ name: 'Byse 🚀', url: sByse.startsWith('http') ? sByse : `https://bysevepoin.com/e/${sByse}` });
-            if (sFilemoon) serverList.push({ name: 'Filemoon 🌙', url: sFilemoon.startsWith('http') ? sFilemoon : `https://filemoon.sx/e/${sFilemoon}` });
+            if (sFilemoon) {
+                const cleanFmId = sFilemoon.replace(/^https?:\/\/[^/]+(\/es)?\//i, '').replace(/\/embed.*$/i, '').replace(/^e\//i, '').trim();
+                if (cleanFmId) serverList.push({ name: 'Filemoon 🌙', url: `https://filemoon.org/es/${cleanFmId}/embed` });
+            }
 
             for (let i = serverList.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -786,7 +789,7 @@ Etiquetas: ${epTags.join(", ")}`;
                 </div>
                 <div class="row">
                     <div><label>ID Byse (bysevepoin.com) 🚀</label><input type="text" id="idByse" placeholder="Ej: abc123xyz"></div>
-                    <div><label>ID Filemoon (filemoon.sx) 🌙</label><input type="text" id="idFilemoon" placeholder="Ej: abc123xyz"></div>
+                    <div><label>ID Filemoon (solo el ID) 🌙</label><input type="text" id="idFilemoon" placeholder="Ej: vgKGxJDQ38Qn"></div>
                 </div>
             </div>
 
